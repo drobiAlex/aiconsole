@@ -90,7 +90,7 @@ async def _handle_acquire_lock_ws_message(connection: AICConnection, json: dict)
             lock_id=message.request_id,
             origin=connection,
         )
-        await context.acquire_write_lock(ref=message.ref, originating_from_server=False)
+        await context.acquire_write_lock(ref=message.ref)
         await connection.send(
             ResponseServerMessage(request_id=message.request_id, payload={"chat_id": message.ref.id}, is_error=False)
         )
@@ -112,7 +112,7 @@ async def _handle_release_lock_ws_message(connection: AICConnection, json: dict)
         lock_id=message.request_id,
         origin=connection,
     )
-    await context.release_write_lock(ref=message.ref, originating_from_server=False)
+    await context.release_write_lock(ref=message.ref)
     await connection.send(
         ResponseServerMessage(request_id=message.request_id, payload={"chat_id": message.ref.id}, is_error=False)
     )

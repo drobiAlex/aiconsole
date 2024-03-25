@@ -18,11 +18,11 @@ class DataContext(ABC):
         pass
 
     @abstractmethod
-    async def acquire_write_lock(self, ref: "ObjectRef", lock_id: str, originating_from_server: bool):
+    async def acquire_write_lock(self, ref: "ObjectRef", lock_id: str):
         pass
 
     @abstractmethod
-    async def release_write_lock(self, ref: "ObjectRef", lock_id: str, originating_from_server: bool):
+    async def release_write_lock(self, ref: "ObjectRef", lock_id: str):
         pass
 
     @abstractmethod

@@ -51,27 +51,6 @@ class Assets:
             raise ValueError("Assets not configured")
         ...
 
-    def get_asset(
-        self, id, location: AssetLocation | None = None, type: AssetType | None = None, enabled: bool | None = None
-    ):
-        """
-        Get a specific asset.
-        """
-        if id not in self.cached_assets or len(self.cached_assets[id]) == 0:
-            return None
-
-        for asset in self.cached_assets[id]:
-            if location is None or asset.defined_in == location:
-                if type and asset.type != type:
-                    return None
-
-                if enabled is not None and self.is_enabled(asset.id) != enabled:
-                    return None
-
-                return asset
-
-        return None
-
     def clean_up(self) -> None:
         """
         Cleans up resources used by the assets, such as storage and notifications.
