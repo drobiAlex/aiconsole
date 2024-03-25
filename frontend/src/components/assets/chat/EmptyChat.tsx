@@ -203,7 +203,6 @@ export const EmptyChat = ({ textAreaRef }: EmptyChatProps) => {
           onClick={refreshUsageExamples}
         >
           <Icon icon={RefreshCcw} width={16} height={16} />
-          <span className="mr-2">Shuffle prompts</span>
         </button>
       </div>
 

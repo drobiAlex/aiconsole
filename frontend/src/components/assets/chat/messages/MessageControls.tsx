@@ -26,7 +26,7 @@ interface MessageControlsProps {
   onCancelClick?: () => void;
   onPlayClick?: () => Promise<void>;
   onPlayStopClick?: () => void;
-  isPlaying?: boolean;
+  isSoundHighlighted?: boolean;
   isSoundLoading?: boolean;
 }
 
@@ -39,7 +39,7 @@ export function MessageControls({
   onRemoveClick,
   onPlayClick,
   onPlayStopClick,
-  isPlaying,
+  isSoundHighlighted,
   isSoundLoading,
 }: MessageControlsProps) {
   return (
@@ -66,12 +66,12 @@ export function MessageControls({
           {isSoundLoading && <Icon icon={Loader2Icon} className="animate-spin" />}
           {!isSoundLoading && (
             <>
-              {onPlayClick && !isPlaying && (
+              {onPlayClick && !isSoundHighlighted && (
                 <button onClick={onPlayClick}>
                   <Icon icon={Volume2Icon} />{' '}
                 </button>
               )}
-              {onPlayStopClick && isPlaying && (
+              {onPlayStopClick && isSoundHighlighted && (
                 <button onClick={onPlayStopClick} className="text-primary">
                   <Icon icon={Volume2Icon} strokeWidth={2} />{' '}
                 </button>
