@@ -234,7 +234,7 @@ function handleSetValueMutation(asset: Asset | AICChat, mutation: SetValueMutati
 
   // Finish playing speech if content has finished changing
   // Should probably be added externally as an additional handler for is_streaming (using some kind of staticlly typed ref?)
-  if (key === 'is_streaming' && !value) {
+  if (useTTSStore.getState().hasAutoPlay && key === 'is_streaming' && !value) {
     useTTSStore.getState().readText(assetToChange['content'], false);
   }
 }

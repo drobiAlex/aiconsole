@@ -16,7 +16,7 @@
 
 import { useChatStore } from '@/store/assets/chat/useChatStore';
 import { cn } from '@/utils/common/cn';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { CodeInput } from '../../CodeInput';
 import { MessageControls } from './MessageControls';
 import { useTTSStore } from '@/audio/useTTSStore';
@@ -47,8 +47,17 @@ export function EditableContentMessage({
   setIsEditing,
 }: EditableContentMessageProps) {
   const isBeingProcessed = useChatStore((state) => !!state.chat?.lock_id);
+  const isPlaying = useTTSStore((state) => state.isPlaying);
+  const numLoading = useTTSStore((state) => state.numLoading);
+  const hasAutoPlay = useTTSStore((state) => state.hasAutoPlay);
+  const readText = useTTSStore((state) => state.readText);
+  const stopReading = useTTSStore((state) => state.stopReading);
+
   const [content, setContent] = useState(initialContent);
-  const { isPlaying, numLoading, hasAutoPlay, readText, stopReading } = useTTSStore();
+
+  useEffect(() => {
+    setContent(initialContent);
+  }, [initialContent]);
 
   const handleEditClick = () => {
     if (isBeingProcessed) {
@@ -69,6 +78,14 @@ export function EditableContentMessage({
     await handleAcceptedContent(content);
     setIsEditing(false);
   }, [content, handleAcceptedContent, setIsEditing]);
+
+  const handlePlayClick = useCallback(async () => {
+    await readText(content, false);
+  }, [content, readText]);
+
+  const handleStopClick = useCallback(() => {
+    stopReading();
+  }, [stopReading]);
 
   return (
     <div className={cn('flex flex-row items-start overflow-auto', className)}>
@@ -99,21 +116,9 @@ export function EditableContentMessage({
           <MessageControls
             isEditing={isEditing}
             hideControls={hideControls}
-            onPlayClick={
-              enableTTS
-                ? async () => {
-                    await readText(content, false);
-                  }
-                : undefined
-            }
-            onPlayStopClick={
-              enableTTS
-                ? () => {
-                    stopReading();
-                  }
-                : undefined
-            }
-            isPlaying={hasAutoPlay}
+            onPlayClick={enableTTS ? handlePlayClick : undefined}
+            onPlayStopClick={enableTTS ? handleStopClick : undefined}
+            isSoundHighlighted={hasAutoPlay}
             isSoundLoading={numLoading > 0 && !isPlaying}
             onCancelClick={handleCancelEditClick}
             onEditClick={handleEditClick}

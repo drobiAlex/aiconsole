@@ -76,10 +76,7 @@ export const useTTSStore = create<TTSState>((set, get) => ({
     const { queuedTextSoFar } = get();
     if (text.startsWith(queuedTextSoFar)) {
       const remainingText = text.slice(queuedTextSoFar.length);
-      if (!canBeContinued) {
-        get().enqueueText(remainingText);
-        set({ queuedTextSoFar: '' });
-      } else {
+      if (canBeContinued) {
         const paragraphs = remainingText.split(/\n\n+/);
         if (paragraphs.length > 1) {
           const fullParagraphs = paragraphs.slice(0, paragraphs.length - 1).join('\n\n');
@@ -93,6 +90,9 @@ export const useTTSStore = create<TTSState>((set, get) => ({
           set({ queuedTextSoFar: newText });
           get().enqueueText(fullParagraphs);
         }
+      } else {
+        set({ queuedTextSoFar: '' });
+        get().enqueueText(remainingText);
       }
     } else {
       console.log('Cannot continue reading from a different text', "'", queuedTextSoFar, "'", "'", text, "'");
