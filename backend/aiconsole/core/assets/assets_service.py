@@ -4,7 +4,7 @@ from functools import lru_cache
 from typing import Type
 
 from aiconsole.core.assets.assets_storage import AssetsStorage
-from aiconsole.core.assets.types import Asset
+from aiconsole.core.assets.types import Asset, AssetLocation
 from aiconsole.utils.events import InternalEvent, internal_events
 from aiconsole.utils.notifications import Notifications
 
@@ -50,6 +50,27 @@ class Assets:
             _log.error("Assets not configured.")
             raise ValueError("Assets not configured")
         ...
+
+    def get_asset(
+        self, id, location: AssetLocation | None = None, type: AssetType | None = None, enabled: bool | None = None
+    ):
+        """
+        Get a specific asset.
+        """
+        if id not in self.cached_assets or len(self.cached_assets[id]) == 0:
+            return None
+
+        for asset in self.cached_assets[id]:
+            if location is None or asset.defined_in == location:
+                if type and asset.type != type:
+                    return None
+
+                if enabled is not None and self.is_enabled(asset.id) != enabled:
+                    return None
+
+                return asset
+
+        return None
 
     def clean_up(self) -> None:
         """

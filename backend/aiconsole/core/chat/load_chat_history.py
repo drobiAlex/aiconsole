@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
-import uuid
 from datetime import datetime
 from pathlib import Path
 
@@ -36,34 +35,6 @@ async def load_chat_history(id: str, project_path: Path | None = None) -> AICCha
     if await async_os.path.exists(file_path):
         async with aiofiles.open(file_path, mode="r", encoding="utf8", errors="replace") as f:
             data = json.loads(await f.read())
-
-            # Convert old format
-            if "message_groups" not in data or not data["message_groups"]:
-                data["message_groups"] = []
-
-                if "messages" in data and data["messages"]:
-                    for message in data["messages"]:
-                        data["message_groups"].append(
-                            {
-                                "id": message["id"] if "id" in message else uuid.uuid4().hex,
-                                "role": message["role"] if "role" in message else "",
-                                "task": message["task"] if "task" in message and message["task"] else "",
-                                "agent_id": message["agent_id"] if "agent_id" in message else "",
-                                "materials_ids": (
-                                    message["materials_ids"]
-                                    if "materials_ids" in message and message["materials_ids"]
-                                    else []
-                                ),
-                                "messages": [
-                                    {
-                                        "id": message["id"] if "id" in message else uuid.uuid4().hex,
-                                        "timestamp": message["timestamp"] if "timestamp" in message else "",
-                                        "content": message["content"] if "content" in message else "",
-                                    }
-                                ],
-                            }
-                        )
-                    del data["messages"]
 
             # Add tool_calls to each message
             for group in data["message_groups"]:
@@ -150,11 +121,10 @@ async def load_chat_history(id: str, project_path: Path | None = None) -> AICCha
                 data["override"] = False
 
             stat = await async_os.stat(file_path)
-            last_modified = datetime.fromtimestamp(stat.st_mtime)
 
             return AICChat(
                 id=id,
-                last_modified=last_modified,
+                last_modified=datetime.fromtimestamp(stat.st_mtime),
                 **data,
             )
     else:

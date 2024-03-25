@@ -29,7 +29,6 @@ from aiconsole.api.endpoints.services import (
 from aiconsole.core.assets.agents.agent import AICAgent
 from aiconsole.core.assets.assets import Assets
 from aiconsole.core.assets.fs.exceptions import UserIsAnInvalidAgentIdError
-from aiconsole.core.assets.get_material_content_name import get_material_content_name
 from aiconsole.core.assets.materials.material import AICMaterial, MaterialContentType
 from aiconsole.core.assets.types import Asset, AssetLocation, AssetType
 from aiconsole.core.chat.load_chat_history import load_chat_history
@@ -44,6 +43,17 @@ from aiconsole.core.project.project import get_project_assets, is_project_initia
 router = APIRouter()
 
 DeserializableAsset = AICAgent | AICMaterial | AICChat
+
+
+def get_material_content_name(content_type: MaterialContentType):
+    if content_type == "static_text":
+        return "Note"
+    elif content_type == "dynamic_text":
+        return "Dynamic Note"
+    elif content_type == "api":
+        return "Connection"
+    else:
+        return "Material"
 
 
 @router.get("/{asset_id}")
