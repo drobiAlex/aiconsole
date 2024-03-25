@@ -10,14 +10,15 @@ from aiconsole.api.websockets.connection_manager import (
 from aiconsole.api.websockets.server_messages import (
     NotifyAboutAssetMutationServerMessage,
 )
+from aiconsole.core.assets.agents.agent import AICAgent
+from aiconsole.core.assets.materials.material import AICMaterial
+from aiconsole.core.assets.users.users import AICUserProfile
 from aiconsole.core.chat.root import Root
 from aiconsole.core.chat.types import AICChat, AICMessage, AICMessageGroup, AICToolCall
 from aiconsole.core.project.project import get_project_assets
 from fastmutation.apply_mutation import apply_mutation
 from fastmutation.data_context import DataContext
-from fastmutation.mutations import (
-    AssetMutation,
-)
+from fastmutation.mutations import AssetMutation
 from fastmutation.types import AnyRef, BaseObject, CollectionRef, ObjectRef
 
 _log = logging.getLogger(__name__)
@@ -227,6 +228,9 @@ class AICFileDataContext(DataContext):
             "AICMessage": AICMessage,
             "AICToolCall": AICToolCall,
             "AICChat": AICChat,
+            "AICMaterial": AICMaterial,
+            "AICAgent": AICAgent,
+            "AICUserProfile": AICUserProfile,
         }
 
     async def __wait_for_all_mutations(self, ref: ObjectRef):

@@ -24,10 +24,11 @@ import { AICChat, createEmptyChat } from '@/types/assets/chatTypes';
 import { v4 as uuidv4 } from 'uuid';
 import { useAssetStore } from '../useAssetStore';
 import { ChatStore, useChatStore } from './useChatStore';
+import { MutationsAPI } from '@/api/api/MutationsAPI';
 
 export type ChatSlice = {
   isSaved: boolean;
-  chat?: AICChat;
+  chat: AICChat;
   chatOptions?: {
     agent_id: string;
     materials_ids: string[];
@@ -46,7 +47,6 @@ export type ChatSlice = {
   setSelectedMaterialsIds: (ids: string[]) => void;
   setAICanAddExtraMaterials: (aiCanAddExtraMaterials: boolean) => void;
   setDraftCommand: (draftCommand: string) => void;
-  createChat: (chat: AICChat) => Promise<void>;
   chatOptionsSaveDebounceTimer: NodeJS.Timeout | null;
 };
 
@@ -179,26 +179,6 @@ export const createChatSlice: StateCreator<ChatStore, [], [], ChatSlice> = (set,
       };
     });
   },
-  createChat: async (chat: AICChat) => {
-    const mutation: CreateMutation = {
-      type: 'CreateMutation',
-      ref: {
-        id: chat.id,
-        parent_collection: {
-          id: 'assets',
-          parent: null,
-        },
-      },
-      object_type: 'AICChat',
-      object: chat,
-    };
-
-    useWebSocketStore.getState().sendMessage({
-      type: 'DoMutationClientMessage',
-      request_id: uuidv4(),
-      mutation,
-    });
-  },
 });
 
 const debounceChatOptionsUpdate = (
@@ -223,33 +203,14 @@ const debounceChatOptionsUpdate = (
       const isSaved = useChatStore.getState().isSaved;
 
       if (!isSaved) {
-        useChatStore.getState().createChat(chat);
+        MutationsAPI.create({ object: chat });
         useChatStore.setState({ isSaved: true });
         useAssetStore.setState((state) => ({
           assets: [chat, ...state.assets],
         }));
       }
 
-      const mutation: SetValueMutation = {
-        type: 'SetValueMutation',
-        ref: {
-          id: chat.id,
-          parent_collection: {
-            id: 'assets',
-            parent: null,
-          },
-        },
-        key: 'chat_options',
-        value: chatOptions,
-      };
-
-      applyMutation(chat, mutation);
-
-      useWebSocketStore.getState().sendMessage({
-        type: 'DoMutationClientMessage',
-        request_id: uuidv4(),
-        mutation,
-      });
+      MutationsAPI.update({ asset: chat, key: 'chat_options', value: chatOptions });
       useChatStore.setState({ chatOptionsSaveDebounceTimer: null });
     }, debounceDelay),
   });

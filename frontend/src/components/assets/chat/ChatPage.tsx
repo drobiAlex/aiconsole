@@ -16,7 +16,7 @@
 
 import { AssetsAPI } from '@/api/api/AssetsAPI';
 import { EmptyChat } from '@/components/assets/chat/EmptyChat';
-import { MessageGroup } from '@/components/assets/chat/MessageGroup';
+import { MessageGroup } from './messages/MessageGroup';
 import { ContextMenu } from '@/components/common/ContextMenu';
 import { QuestionMarkIcon } from '@/components/common/icons/QuestionMarkIcon';
 import { SendRotated } from '@/components/common/icons/SendRotated';

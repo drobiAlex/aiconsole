@@ -16,20 +16,20 @@
 
 import { StateCreator } from 'zustand';
 
-import { AICToolCall, AICMessage } from '@/types/assets/chatTypes';
+import { AICChat, AICMessage, AICToolCall } from '@/types/assets/chatTypes';
+import { getMessage, getToolCall } from '@/utils/assets/chatUtils';
 import { ChatStore } from './useChatStore';
-import { deepCopyChat, getMessage, getToolCall } from '@/utils/assets/chatUtils';
 // import { ChatMutation } from '@/api/ws/chat/chatMutations';
-import { applyMutation } from '@/api/ws/chat/applyMutation';
 import { useWebSocketStore } from '@/api/ws/useWebSocketStore';
 
+import { Asset } from '@/types/assets/assetTypes';
 import { v4 as uuidv4 } from 'uuid';
-import { AssetMutation } from '@/api/ws/assetMutations';
+import { deepCopyObject } from '@/utils/common/deepCopyObject';
 
 export type MessageSlice = {
   loadingMessages: boolean;
   isViableForRunningCode: (toolCallId: string) => boolean;
-  userMutateChat: (mutation: AssetMutation | AssetMutation[]) => Promise<void>;
+  userMutateChat: (mutationAction: (asset: Asset, lockId: string) => Promise<Asset>) => Promise<void>;
   lockChat: (lockId: string) => Promise<void>;
   unlockChat: (lockId: string) => Promise<void>;
 };
@@ -88,32 +88,23 @@ export const createMessageSlice: StateCreator<ChatStore, [], [], MessageSlice> =
       ref: { id: chat.id, context: null, parent_collection: { id: 'assets', parent: null } },
     });
   },
-  userMutateChat: async (mutation: AssetMutation | AssetMutation[]) => {
-    const mutations = Array.isArray(mutation) ? mutation : [mutation];
+  userMutateChat: async (mutationAction: (asset: Asset, lockId: string) => Promise<Asset>) => {
     const lockId = uuidv4();
     await get().lockChat(lockId);
 
     try {
-      set((state) => {
-        const chat = deepCopyChat(state.chat);
+      const chat = get().chat;
 
-        if (!chat) {
-          throw new Error('Chat is not initialized');
-        }
+      if (!chat) {
+        throw new Error('Chat is not initialized');
+      }
 
-        for (const mutation of mutations) {
-          applyMutation(chat, mutation);
+      const copiedChat = JSON.parse(JSON.stringify(chat));
+      const mutatedChat = (await mutationAction(copiedChat, lockId)) as AICChat;
 
-          // send to server
-          useWebSocketStore.getState().sendMessage({
-            type: 'DoMutationClientMessage',
-            request_id: lockId,
-            mutation,
-          });
-        }
-
+      set(() => {
         return {
-          chat,
+          chat: mutatedChat,
         };
       });
     } finally {
@@ -122,7 +113,7 @@ export const createMessageSlice: StateCreator<ChatStore, [], [], MessageSlice> =
   },
   clientEditMessage: (change: (message: AICMessage) => void, messageId: string) => {
     set((state) => {
-      const chat = deepCopyChat(state.chat);
+      const chat = deepCopyObject(state.chat);
       const messageLocation = getMessage(chat, messageId);
       if (!messageLocation) {
         console.error(`Message with id ${messageId} not found in`, chat);
@@ -144,7 +135,7 @@ export const createMessageSlice: StateCreator<ChatStore, [], [], MessageSlice> =
   },
   clientEditToolCall: (change: (toolCall: AICToolCall) => void, toolCallId: string) => {
     set((state) => {
-      const chat = deepCopyChat(state.chat);
+      const chat = deepCopyObject(state.chat);
       const outputLocation = getToolCall(chat, toolCallId);
 
       if (!outputLocation) {
