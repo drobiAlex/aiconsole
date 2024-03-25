@@ -52,7 +52,7 @@ async def do_process_chat(chat_ref: ChatRef):
 
         director_agent = cast(
             AICAgent | None,
-            project.get_project_assets().get_asset(DIRECTOR_AGENT_ID, type=AssetType.AGENT, enabled=True),
+            project.get_project_assets().get_asset(DIRECTOR_AGENT_ID, enabled=True),
         )
 
         if director_agent:

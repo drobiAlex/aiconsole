@@ -46,7 +46,7 @@ class UserProfileService:
         if user_profile and user_profile.id == user_id:
             return user_profile
 
-        aic_user_profile: AICUserProfile | None = project.get_project_assets().get_asset(id=user_id, type=AssetType.USER)  # type: ignore
+        aic_user_profile: AICUserProfile | None = project.get_project_assets().get_asset(id=user_id)  # type: ignore
         if aic_user_profile:
             return UserProfile(
                 id=aic_user_profile.id,

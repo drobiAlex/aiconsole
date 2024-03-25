@@ -1,34 +1,26 @@
 from typing import Protocol
 
-from .types import Asset, AssetType
+from .types import Asset
 
 
 class AssetsStorage(Protocol):
     @property
-    def assets(self, asset_type: AssetType | None = None) -> list[Asset]:  # fmt: off
+    def assets(self) -> dict[str, list[Asset]]:  # fmt: off
         ...
 
-    @property
-    def locations(self):  # fmt: off
+    async def update_asset(
+        self, original_asset_id: str, updated_asset: Asset, scope: str | None = None
+    ) -> None:  # fmt: off
         ...
 
-    def get_asset(self, asset_id: str) -> Asset | None:  # fmt: off
+    async def create_asset(self, asset: Asset) -> None:  # fmt: off
         ...
 
-    def update_asset(
-        self,
-        asset_id: str,
-    ) -> Asset | None:
-        pass
+    async def delete_asset(self, asset_id: str) -> None:  # fmt: off
+        ...
 
-    def create_asset(self, asset: Asset) -> None:
-        pass
+    async def setup(self) -> tuple[bool, Exception | None]:  # fmt: off
+        ...
 
-    def delete_asset(self, asset_id: str) -> None:
-        pass
-
-    def propagate_asset_changes(self) -> None:
-        pass
-
-    def destroy(self):  # fmt: off
+    def destroy(self) -> None:  # fmt: off
         ...

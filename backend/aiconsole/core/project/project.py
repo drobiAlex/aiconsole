@@ -42,10 +42,10 @@ from aiconsole.core.settings.fs.settings_file_storage import SettingsFileStorage
 from aiconsole.core.settings.settings import settings
 
 if TYPE_CHECKING:
-    from aiconsole.core.assets import assets
+    from aiconsole.core.assets import assets_service
 
 
-_assets: "assets.Assets | None" = None
+_assets: "assets_service.Assets | None" = None
 _project_initialized = False
 
 
@@ -54,7 +54,7 @@ async def _clear_project():
     global _project_initialized
 
     if _assets:
-        _assets.stop()
+        _assets.clean_up()
 
     reset_code_interpreters()
 
@@ -73,7 +73,7 @@ async def send_project_init(connection: AICConnection):
     )
 
 
-def get_project_assets() -> "assets.Assets":
+def get_project_assets() -> "assets_service.Assets":
     if not _assets:
         raise ValueError("Project materials are not initialized")
     return _assets
@@ -92,7 +92,7 @@ async def close_project():
 
 
 async def reinitialize_project():
-    from aiconsole.core.assets import assets
+    from aiconsole.core.assets import assets_service
     from aiconsole.core.project.paths import (
         get_project_directory,
         get_project_directory_safe,
@@ -113,7 +113,7 @@ async def reinitialize_project():
 
     await add_to_recent_projects(project_dir)
 
-    _assets = assets.Assets()
+    _assets = assets_service.assets()
 
     await _assets.reload(initial=True)
 

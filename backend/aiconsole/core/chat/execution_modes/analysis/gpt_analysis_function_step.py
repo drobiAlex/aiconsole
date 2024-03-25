@@ -99,7 +99,7 @@ async def gpt_analysis_function_step(
 
     if (await chat_ref.chat_options.get()).agent_id:
         agent_id = (await chat_ref.chat_options.get()).agent_id
-        agent = project.get_project_assets().get_asset(agent_id, type=AssetType.AGENT, enabled=True)
+        agent = project.get_project_assets().get_asset(agent_id, enabled=True)
         if not agent:
             raise ValueError(f"Agent {agent_id} not found")
         possible_agent_choices = [cast(AICAgent, agent)]
