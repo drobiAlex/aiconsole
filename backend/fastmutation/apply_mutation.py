@@ -1,6 +1,6 @@
 from typing import Any, Awaitable, Callable
 
-from aiconsole.core.chat.types import AICChatOptions, Asset
+from aiconsole.core.chat.types import AICChatOptions
 from aiconsole.core.project.project import get_project_assets
 from fastmutation.data_context import DataContext
 from fastmutation.mutations import (
@@ -32,6 +32,8 @@ async def _handle_CreateMutation(root: DataContext, mutation: CreateMutation):
     obj = object_type(**mutation_object, id=mutation.ref.id)
 
     attr = asset
+
+    # if creting asset
     for ref in mutation.ref.ref_segments[2:-1]:
         if isinstance(attr, list):
             attr = next((item for item in attr if item.id == ref), None)
@@ -45,10 +47,11 @@ async def _handle_CreateMutation(root: DataContext, mutation: CreateMutation):
     else:
         attr = obj
 
-    await get_project_assets().save_asset(asset or attr, (asset and asset.id) or "new", create=asset is None)
-
-    if isinstance(attr, Asset):
-        await get_project_assets().reload(initial=True)
+    if asset is None:
+        get_project_assets()._storage._assets[attr.id] = [attr, ]
+        root.asset_operation_manager.queue_operation(get_project_assets().create_asset, attr)  # type: ignore
+    else:
+        root.asset_operation_manager.queue_operation(get_project_assets().update_asset, asset.id, asset or attr)  # type: ignore
 
 
 async def _handle_DeleteMutation(root: DataContext, mutation: DeleteMutation):
@@ -69,7 +72,10 @@ async def _handle_DeleteMutation(root: DataContext, mutation: DeleteMutation):
 
     collection.remove(object)
 
-    await get_project_assets().save_asset(asset, asset.id, create=False)
+    if asset is None:
+        root.asset_operation_manager.queue_operation(get_project_assets().delete_asset, asset.id)  # type: ignore
+    else:
+        root.asset_operation_manager.queue_operation(get_project_assets().update_asset, asset.id, asset)  # type: ignore
 
 
 # TODO: rework
@@ -96,7 +102,7 @@ async def _handle_SetValueMutation(data: DataContext, mutation: SetValueMutation
         else:
             setattr(attr, mutation.key, mutation.value)
 
-    await get_project_assets().save_asset(asset, asset.id, create=False)
+    data.asset_operation_manager.queue_operation(get_project_assets().update_asset, asset.id, asset)  # type: ignore
 
 
 # TODO: rework
@@ -120,7 +126,7 @@ async def _handle_AppendToStringMutation(data: DataContext, mutation: AppendToSt
     else:
         setattr(attr, mutation.key, getattr(attr, mutation.key, "") + mutation.value)
 
-    await get_project_assets().save_asset(asset, asset.id, create=False)
+    data.asset_operation_manager.queue_operation(get_project_assets().update_asset, asset.id, asset)  # type: ignore
 
 
 MUTATION_HANDLERS: dict[str, Callable[[DataContext, Any], Awaitable[None]]] = {

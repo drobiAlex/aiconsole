@@ -18,11 +18,11 @@ class DataContext(ABC):
         pass
 
     @abstractmethod
-    async def acquire_write_lock(self, ref: "ObjectRef", lock_id: str):
+    async def acquire_lock(self, ref: "ObjectRef"):
         pass
 
     @abstractmethod
-    async def release_write_lock(self, ref: "ObjectRef", lock_id: str):
+    async def release_lock(self, ref: "ObjectRef"):
         pass
 
     @abstractmethod
@@ -52,7 +52,7 @@ class DataContext(ABC):
     async def write_lock(self, ref: "ObjectRef", originating_from_server: bool):
         lock_id = str(uuid.uuid4())
         try:
-            await self.acquire_write_lock(ref, lock_id, originating_from_server)
+            await self.acquire_lock(ref)
             yield lock_id
         finally:
-            await self.release_write_lock(ref, lock_id, originating_from_server)
+            await self.release_lock(ref)

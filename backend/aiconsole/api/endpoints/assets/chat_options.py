@@ -32,6 +32,5 @@ async def chat_options(chat_id: str, chat_options: PatchChatOptions):
     if chat_options.draft_command is not None:
         chat.chat_options.draft_command = chat_options.draft_command
 
-    await get_project_assets().save_asset(chat, old_asset_id=chat.id, create=True, scope="chat_options")
-    await get_project_assets().reload(initial=True)
+    await get_project_assets().update_asset(chat.id, chat, scope="chat_options")
     return Response(status_code=status.HTTP_200_OK)

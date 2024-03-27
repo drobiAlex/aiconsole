@@ -69,9 +69,9 @@ def pick_agent(arguments, chat: AICChat, available_agents: list[AICAgent]) -> AI
 
 def _get_relevant_materials(relevant_material_ids: list[str]) -> list[AICMaterial]:
     return [
-        cast(AICMaterial, k)
-        for k in project.get_project_assets().assets_with_enabled_flag_set_to(True)
-        if k.id in relevant_material_ids
+        cast(AICMaterial, k[0])
+        for k in project.get_project_assets().filter_unified_assets(enabled=True).values()
+        if k[0].id in relevant_material_ids
     ]
 
 
@@ -112,17 +112,17 @@ async def gpt_analysis_function_step(
     available_materials = []
     forced_materials = []
     if (await chat_ref.chat_options.get()).materials_ids:
-        for material in project.get_project_assets().cached_assets.values():
+        for material in project.get_project_assets().unified_assets.values():
             if material[0].id in ((await chat_ref.chat_options.get()).materials_ids or []):
                 forced_materials.append(material[0])
 
+    # TODO: Check if it is a duplicate code form analysis
     if (await chat_ref.chat_options.get()).ai_can_add_extra_materials:
         available_materials = [
             *forced_materials,
             *[
-                asset
-                for asset in project.get_project_assets().assets_with_enabled_flag_set_to(True)
-                if asset.type == AssetType.MATERIAL
+                asset[0]
+                for asset in project.get_project_assets().filter_unified_assets(enabled=True, asset_type=AssetType.MATERIAL).values()
             ],
         ]
 

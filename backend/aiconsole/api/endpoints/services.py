@@ -1,6 +1,6 @@
 from fastapi import UploadFile
 
-from aiconsole.core.assets.assets import Assets
+from aiconsole.core.assets.assets_service import Assets
 from aiconsole.core.assets.types import Asset, AssetType
 from aiconsole.core.project import project
 from aiconsole.core.project.paths import get_project_assets_directory
@@ -14,13 +14,10 @@ class AssetsService:
     async def _create(self, assets: Assets, asset_id: str, asset: Asset) -> None:
         self._validate_existance(assets, asset_id)
 
-        await assets.save_asset(asset, old_asset_id=asset_id, create=True)
+        await assets.create_asset(asset)
 
     async def _partially_update(self, assets: Assets, old_asset_id: str, asset: Asset) -> None:
-        # if asset.id != old_asset_id:
-        #     self._validate_existance(assets, asset.id)
-
-        await assets.save_asset(asset, old_asset_id=old_asset_id, create=True)
+        await assets.update_asset(old_asset_id, asset)
 
     def _validate_existance(self, assets: Assets, asset_id: str) -> None:
         existing_asset = assets.get_asset(asset_id)

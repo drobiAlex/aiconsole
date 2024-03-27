@@ -5,6 +5,7 @@ import shutil
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 import aiofiles
 import aiofiles.os as async_os
@@ -42,6 +43,7 @@ class AssetLoadErrorEvent(InternalEvent):
 class AssetDoesNotExisitErrorEvent(InternalEvent):
     pass
 
+
 # TODO: Check if CRUD operations need to modify _assets or are reloaded with each modification
 class AssetsFileStorage:
     paths: list[Path]
@@ -64,8 +66,8 @@ class AssetsFileStorage:
     async def setup(self) -> tuple[bool, Exception | None]:
         try:
             for asset_type in AssetType:
-                # TODO: decouple to paths
-                get_project_assets_directory(asset_type).mkdir(parents=True, exist_ok=True)
+                for path in self.paths:
+                    (path / f"{asset_type.value}s").mkdir(parents=True, exist_ok=True)
 
             await self._load_assets()
             # FIXME: seems like between loading and spawning observer smth can happen
@@ -90,9 +92,8 @@ class AssetsFileStorage:
     def assets(self) -> dict[str, list[Asset]]:
         return self._assets
 
-    # TODO: verify if assets with core location rise error
     async def update_asset(self, original_asset_id: str, updated_asset: Asset, scope: str | None = None) -> None:
-        self._validate_asset_id(updated_asset)
+        self._validate_asset(updated_asset, validation_scope="update")
 
         project_assets_directory_path = get_project_assets_directory(updated_asset.type)
 
@@ -216,9 +217,8 @@ class AssetsFileStorage:
         if original_st_mtime and not update_last_modified:
             os.utime(updated_asset_file_path, (original_st_mtime, original_st_mtime))
 
-    # TODO: verify that assets with id that already exists rise error
     async def create_asset(self, asset: Asset) -> None:
-        self._validate_asset_id(asset)
+        self._validate_asset(asset, validation_scope="create")
 
         project_assets_directory_path = get_project_assets_directory(asset.type)
         file_path = self._get_asset_file_path(asset.id, asset.type, project_assets_directory_path)
@@ -362,12 +362,22 @@ class AssetsFileStorage:
 
         return s
 
-    def _validate_asset_id(self, asset: Asset) -> None:
+    def _validate_asset(self, asset: Asset, validation_scope: Literal["create"] | Literal["update"]) -> None:
         if isinstance(asset, AICAgent) and asset.id == "user":
             raise UserIsAnInvalidAgentIdError()
 
         if asset.id == "new":
             raise ValueError("Cannot save asset with id 'new'")
+
+        match validation_scope:
+            case "create":
+                if asset.id in self._assets:
+                    raise ValueError(f"Asset with ID '{asset.id}' already exists.")
+            case "update":
+                if asset.defined_in == AssetLocation.AICONSOLE_CORE:
+                    raise ValueError(f"Asset located in '{AssetLocation.AICONSOLE_CORE.value}' cannot be updated")
+            case _:
+                raise ValueError(f"Unknown validation scope {validation_scope}")
 
     async def get_original_mtime_if_exists(self, file_path: Path) -> float | None:
         if file_path.exists():

@@ -90,7 +90,7 @@ async def _handle_acquire_lock_ws_message(connection: AICConnection, json: dict)
             lock_id=message.request_id,
             origin=connection,
         )
-        await context.acquire_write_lock(ref=message.ref)
+        await context.acquire_lock(ref=message.ref)
         await connection.send(
             ResponseServerMessage(request_id=message.request_id, payload={"chat_id": message.ref.id}, is_error=False)
         )
@@ -112,7 +112,7 @@ async def _handle_release_lock_ws_message(connection: AICConnection, json: dict)
         lock_id=message.request_id,
         origin=connection,
     )
-    await context.release_write_lock(ref=message.ref)
+    await context.release_lock(ref=message.ref)
     await connection.send(
         ResponseServerMessage(request_id=message.request_id, payload={"chat_id": message.ref.id}, is_error=False)
     )
@@ -172,8 +172,7 @@ async def _handle_duplicate_chat_ws_message(connection: AICConnection, json: dic
 
         duplicated_asset = deepcopy(asset)
         duplicated_asset.id = new_asset_id
-        await project.get_project_assets().save_asset(duplicated_asset, old_asset_id=new_asset_id, create=True)
-        await project.get_project_assets().reload(initial=True)
+        await project.get_project_assets().create_asset(duplicated_asset)
 
         await connection.send(DuplicateAssetServerMessage(asset_id=new_asset_id))
     except Exception as e:
@@ -258,7 +257,7 @@ async def _handle_accept_code_ws_message(connection: AICConnection, json: dict):
             )
 
         try:
-            await context.acquire_write_lock(ref=chat_ref, originating_from_server=True)
+            await context.acquire_lock(ref=chat_ref)
 
             message_ref = message.tool_call_ref.parent_collection.parent
             message_group_ref = message_ref.parent_collection.parent if message_ref else None
@@ -295,7 +294,7 @@ async def _handle_accept_code_ws_message(connection: AICConnection, json: dict):
                     event,
                     _notify,
                 )
-            await context.release_write_lock(ref=chat_ref, originating_from_server=True)
+            await context.release_lock(ref=chat_ref)
 
     task = asyncio.create_task(cancelable_task_function())
     _stoppable_tasks_for_chat[chat_ref.id][task.get_name()] = task

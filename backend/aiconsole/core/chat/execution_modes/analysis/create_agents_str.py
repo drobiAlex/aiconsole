@@ -16,7 +16,6 @@
 
 import random
 
-from aiconsole.core.assets.types import AssetType
 from aiconsole.core.chat.execution_modes.analysis.agents_to_choose_from import (
     agents_to_choose_from,
 )

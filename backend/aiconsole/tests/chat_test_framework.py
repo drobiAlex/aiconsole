@@ -63,11 +63,11 @@ class ClientSideDataContext(DataContext):
     def exists(self, ref: AnyRef) -> bool:
         raise NotImplementedError("This method is not implemented")
 
-    async def acquire_write_lock(self, ref: "AnyRef", lock_id: str) -> None:
+    async def acquire_lock(self, ref: "AnyRef", lock_id: str) -> None:
         # Implement logic to acquire a write lock
         pass
 
-    async def release_write_lock(self, ref: "AnyRef", lock_id: str) -> None:
+    async def release_lock(self, ref: "AnyRef", lock_id: str) -> None:
         # Implement logic to release a write lock
         pass
 

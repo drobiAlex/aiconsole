@@ -62,6 +62,7 @@ async def _clear_project():
     _project_initialized = False
 
 
+# TODO: move to API sending a message
 async def send_project_init(connection: AICConnection):
     from aiconsole.core.project.paths import get_project_directory, get_project_name
 
@@ -91,13 +92,11 @@ async def close_project():
     settings().configure(SettingsFileStorage, project_path=None)
 
 
+# TODO: move to API sending a message
 async def reinitialize_project():
-    from aiconsole.core.assets import assets_service
-    from aiconsole.core.project.paths import (
-        get_project_directory,
-        get_project_directory_safe,
-        get_project_name,
-    )
+    from aiconsole.core.assets.assets_service import assets
+    from aiconsole.core.assets.fs.assets_file_storage import AssetsFileStorage
+    from aiconsole.core.project.paths import get_project_directory, get_project_name
     from aiconsole.core.recent_projects.recent_projects import add_to_recent_projects
 
     await connection_manager().send_to_all(ProjectLoadingServerMessage())
@@ -113,30 +112,40 @@ async def reinitialize_project():
 
     await add_to_recent_projects(project_dir)
 
-    _assets = assets_service.assets()
+    _assets = assets()
 
-    await _assets.reload(initial=True)
+    # TODO: check if loading assets before settings cause problems
+    await _assets.configure(
+        AssetsFileStorage(
+            paths=[
+                project_dir,
+            ]
+        )
+    )
+    settings().configure(SettingsFileStorage, project_path=project_dir)
 
-    settings().configure(SettingsFileStorage, project_path=get_project_directory_safe())
-
-    # Save user info to users
+    # Save user info to assets
     user_profile = settings().unified_settings.user_profile
     if user_profile:
-        await _assets.save_asset(
-            AICUserProfile(
-                id=user_profile.id,
-                name=user_profile.display_name or f"User-{user_profile.id}",
-                display_name=user_profile.display_name,
-                profile_picture=user_profile.profile_picture,
-                usage="",
-                usage_examples=[],
-                defined_in=AssetLocation.PROJECT_DIR,
-                override=False,
-                last_modified=datetime.now(),
-            ),
-            old_asset_id=user_profile.id or "",
-            create=True,
-        )
+        aic_user_profile = _assets.get_asset(user_profile.id)
+        if not aic_user_profile:
+            await _assets.create_asset(
+                AICUserProfile(
+                    id=user_profile.id,
+                    name=user_profile.display_name or f"User-{user_profile.id}",
+                    display_name=user_profile.display_name,
+                    profile_picture=user_profile.profile_picture,
+                    usage="",
+                    usage_examples=[],
+                    defined_in=AssetLocation.PROJECT_DIR,
+                    override=False,
+                    last_modified=datetime.now(),
+                )
+            )
+        else:
+            assert user_profile.id
+            aic_user_profile.last_modified = datetime.now()
+            await _assets.update_asset(user_profile.id, aic_user_profile)
 
     await connection_manager().send_to_all(
         ProjectOpenedServerMessage(path=str(get_project_directory()), name=get_project_name())

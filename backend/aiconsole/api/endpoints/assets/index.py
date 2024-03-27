@@ -26,14 +26,14 @@ router = APIRouter()
 async def fetch_assets():
     assets = []
 
-    assets.extend(project.get_project_assets().all_assets())
+    assets.extend(project.get_project_assets().unified_assets)
 
     return JSONResponse(
         [
             *(
                 {
                     **asset.model_dump(exclude_none=True),
-                    "enabled": project.get_project_assets().is_enabled(asset.id),
+                    "enabled": project.get_project_assets().is_asset_enabled(asset.id),
                 }
                 for asset in assets
             )

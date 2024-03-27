@@ -1,7 +1,7 @@
 import asyncio
 import logging
-from collections import defaultdict
-from typing import Any, Callable, Coroutine, Type, cast, overload
+from collections import defaultdict, deque
+from typing import Any, Callable, Deque, Tuple, Type, cast, overload
 
 from aiconsole.api.websockets.connection_manager import (
     AICConnection,
@@ -10,7 +10,6 @@ from aiconsole.api.websockets.connection_manager import (
 from aiconsole.api.websockets.server_messages import (
     NotifyAboutAssetMutationServerMessage,
 )
-from aiconsole.core.chat.locations import AssetRef
 from aiconsole.core.chat.root import Root
 from aiconsole.core.chat.types import AICChat, AICMessage, AICMessageGroup, AICToolCall
 from aiconsole.core.project.project import get_project_assets
@@ -63,15 +62,31 @@ async def _wait_for_lock(ref: ObjectRef, lock_timeout=30) -> None:
         raise Exception(f"Lock acquisition timed out for {ref}")
 
 
+class AssetOperationManager:
+    def __init__(self):
+        self.operations: Deque[Tuple[Callable, Tuple[Any, ...]]] = deque()
+
+    def queue_operation(self, operation: Callable, *args):
+        self.operations.append((operation, args))
+
+    async def execute_operations(self):
+        while self.operations:
+            operation, args = self.operations.popleft()
+            await operation(*args)
+
+
 class AICFileDataContext(DataContext):
     def __init__(self, origin: AICConnection | None, lock_id: str):
         self.lock_id = lock_id
         self.origin = origin
+        self.asset_operation_manager = AssetOperationManager()
 
     async def mutate(self, mutation: "AssetMutation", originating_from_server: bool) -> None:
         async with _lock:
             try:
                 await apply_mutation(self, mutation)
+                if mutation.ref not in _acquired_locks or (mutation.ref not in _acquired_locks and _acquired_locks[mutation.ref].is_set()):
+                    await self.asset_operation_manager.execute_operations()
             except Exception as e:
                 _log.exception(f"Error during mutation: {e}")
                 raise e
@@ -109,7 +124,7 @@ class AICFileDataContext(DataContext):
         # else:
         #    message_group.role = "assistant"
 
-    async def acquire_lock(self, ref: AssetRef):
+    async def acquire_lock(self, ref: ObjectRef):
         _log.debug(f"[Lock] Acquiring {ref} {self.lock_id}")
 
         if ref in _acquired_locks:
@@ -120,19 +135,19 @@ class AICFileDataContext(DataContext):
         if self.origin:
             self.origin.lock_acquired(ref=ref, request_id=self.lock_id)
 
-    async def release_lock(self, ref: AssetRef):
+    async def release_lock(self, ref: ObjectRef):
         _log.debug(f"[Lock] Releasing {ref} {self.lock_id}")
 
         async with _lock:
             obj = await self.get(ref)
-            if obj and obj.lock_id == self.lock_id:
+            if obj and ref in _acquired_locks:
                 _acquired_locks[ref].set()
                 del _acquired_locks[ref]
 
                 if self.origin:
                     self.origin.lock_released(ref=ref, request_id=self.lock_id)
 
-                await get_project_assets().save_asset(obj, obj.id, create=False)
+                await self.asset_operation_manager.execute_operations()
             else:
                 raise Exception(f"Lock {ref} is not acquired by {self.lock_id}")
 
@@ -158,7 +173,7 @@ class AICFileDataContext(DataContext):
         segment = segments.pop(0)
         if segment == "assets":
             if not segments:
-                return cast(list[BaseObject], get_project_assets().all_assets())
+                return cast(list[BaseObject], get_project_assets().unified_assets)
             # Get the object from the assets collection
             segment = segments.pop(0)
             obj = get_project_assets().get_asset(segment)

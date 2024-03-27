@@ -1,8 +1,8 @@
 import logging
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Type
 
+from aiconsole.api.websockets.server_messages import AssetsUpdatedServerMessage
 from aiconsole.core.assets.assets_storage import AssetsStorage
 from aiconsole.core.assets.types import Asset, AssetLocation, AssetType
 from aiconsole.core.settings.settings import settings
@@ -18,6 +18,14 @@ class AssetsUpdatedEvent(InternalEvent):
     pass
 
 
+class AssetsAlreadyConfiguredError(Exception):
+    pass
+
+
+class AssetsCleanUpBeforeConfigurationError(Exception):
+    pass
+
+
 class Assets:
     _storage: AssetsStorage | None = None
     _notifications: Notifications | None = None
@@ -26,10 +34,13 @@ class Assets:
         """
         Configures the assets storage and notifications.
 
-        :param storage_type: The type of assets storage to use.
-        :param kwargs: Additional keyword arguments for the storage initialization.
+        :param storage: The assets storage instance to use.
+        :raises AssetsAlreadyConfiguredError: If the assets service is already configured and an attempt is made to configure it again without first calling `clean_up`.
         """
-        self.clean_up()
+        if self.is_configured:
+            raise AssetsAlreadyConfiguredError(
+                "Assets service is already configure, if want to reconfigure call `clean_up` and configure again."
+            )
 
         await storage.setup()
         self._storage = storage
@@ -42,11 +53,10 @@ class Assets:
 
         _log.info("Settings configured")
 
-    # TODO: needs to have filters on location, enabled, ...
     @property
     def unified_assets(self) -> dict[str, list[Asset]]:
         """
-        Retrives all assets from given sources.
+        Retrieves all assets from configured sources.
 
         :return: A dict of unified assets.
         """
@@ -56,12 +66,45 @@ class Assets:
 
         return self._storage.assets
 
+    def filter_unified_assets(
+        self, location: AssetLocation | None = None, enabled: bool | None = None, asset_type: AssetType | None = None
+    ):
+        """
+        Returns filtered unified_assets.
+
+        :param location: Optional filter by asset location.
+        :param enabled: Optional filter by asset enabled status.
+        :return: A dict of filtered unified assets.
+        """
+        all_assets = self.unified_assets
+
+        if location is None and enabled is None:
+            return all_assets
+
+        filtered_assets: dict[str, list[Asset]] = {}
+        for asset_id, assets in all_assets.items():
+            filtered_list = []
+            for asset in assets:
+                if location is not None and asset.defined_in != location:
+                    continue
+                if enabled is not None and self.is_asset_enabled(asset.id) != enabled:
+                    continue
+                if asset_type is not None and asset_type != asset.type:
+                    continue
+                filtered_list.append(asset)
+            if filtered_list:
+                filtered_assets[asset_id] = filtered_list
+
+        return filtered_assets
+
     def clean_up(self) -> None:
         """
         Cleans up resources used by the assets, such as storage and notifications.
         """
-        if self._storage:
-            self._storage.destroy()
+        if not self.is_configured:
+            raise AssetsCleanUpBeforeConfigurationError
+
+        self._storage.destroy()  # type: ignore
 
         self._storage = None
         self._notifications = None
@@ -71,7 +114,6 @@ class Assets:
             self._when_reloaded,
         )
 
-    # TODO: add notification message
     async def _when_reloaded(self, AssetsUpdatedEvent) -> None:
         """
         Handles the assets updated event asynchronously.
@@ -82,14 +124,21 @@ class Assets:
             _log.error("Assets not configured.")
             raise ValueError("Assets not configured")
 
-        await self._notifications.notify()
+        await self._notifications.notify(
+            AssetsUpdatedServerMessage(
+                initial=self._notifications.to_suppress,
+                count=len(self.unified_assets),
+            )
+        )
 
     def get_asset(self, asset_id, location: AssetLocation | None = None, enabled: bool | None = None) -> Asset | None:
         if not self._storage or not self._notifications:
             _log.error("Assets not configured.")
             raise ValueError("Assets not configured")
 
-        if asset_id not in self.unified_assets or len(self.unified_assets[asset_id]) == 0:
+        if asset_id not in self.unified_assets or (
+            asset_id in self.unified_assets and len(self.unified_assets[asset_id]) == 0
+        ):
             return None
 
         for asset in self.unified_assets[asset_id]:
@@ -117,6 +166,13 @@ class Assets:
         self._notifications.suppress_next_notification()
         await self._storage.update_asset(original_asset_id, updated_asset, scope)
 
+        if original_asset_id != updated_asset.id:
+            partial_settings = PartialSettingsData(
+                assets_to_reset=[original_asset_id],
+                assets={updated_asset.id: self.is_asset_enabled(original_asset_id)},
+            )
+            settings().save(partial_settings, to_global=False)
+
     async def delete_asset(self, asset_id: str) -> None:
         if not self._storage or not self._notifications:
             _log.error("Assets not configured.")
@@ -125,7 +181,6 @@ class Assets:
         self._notifications.suppress_next_notification()
         await self._storage.delete_asset(asset_id)
 
-    # TODO: this has to be done on asset load
     def is_asset_enabled(self, asset_id: str) -> bool:
         if not self._storage or not self._notifications:
             _log.error("Assets not configured.")
@@ -134,22 +189,18 @@ class Assets:
         settings_data = settings().unified_settings
 
         if asset_id in settings_data.assets:
-            return settings_data.assets[asset_id]
-
-        asset = self.unified_assets[asset_id][0]
-        default_status = asset.enabled_by_default if asset else True
-        return default_status
+            status = settings_data.assets[asset_id]
+        else:
+            asset = self.unified_assets[asset_id][0]
+            status = asset.enabled_by_default if asset else True
+        return status
 
     def set_enabled(self, asset_id: str, enabled: bool, to_global: bool = False) -> None:
         settings().save(PartialSettingsData(assets={asset_id: enabled}), to_global=to_global)
 
-    # TODO: this thing only renames in settigns, no changes to actual name
-    def rename_asset(self, old_id: str, new_id: str) -> None:
-        partial_settings = PartialSettingsData(
-            assets_to_reset=[old_id],
-            assets={new_id: self.is_asset_enabled(old_id)},
-        )
-        settings().save(partial_settings, to_global=False)
+    @property
+    def is_configured(self):
+        return self._storage is not None and self._notifications is not None
 
 
 @lru_cache

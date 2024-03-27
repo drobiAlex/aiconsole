@@ -27,7 +27,6 @@ from aiconsole.api.endpoints.services import (
     AssetWithGivenNameAlreadyExistError,
 )
 from aiconsole.core.assets.agents.agent import AICAgent
-from aiconsole.core.assets.assets import Assets
 from aiconsole.core.assets.fs.exceptions import UserIsAnInvalidAgentIdError
 from aiconsole.core.assets.materials.material import AICMaterial, MaterialContentType
 from aiconsole.core.assets.types import Asset, AssetLocation, AssetType
@@ -126,7 +125,7 @@ async def get_asset(request: Request, asset_id: str):
         return JSONResponse(
             {
                 **asset.model_dump(),
-                "status": assets.is_enabled(asset.id),
+                "status": assets.is_asset_enabled(asset.id),
             }
         )
 
@@ -145,9 +144,7 @@ async def partially_update_asset(
             chat = await load_chat_history(id=asset_id)
             if asset.name:
                 chat.name = str(asset.name)
-                await get_project_assets().save_asset(chat, chat.id, create=False)
-            await project.get_project_assets().reload(initial=True)
-
+                await get_project_assets().update_asset(chat.id, chat)
         else:
             await agents_service.partially_update_asset(asset_id=asset_id, asset=asset)
 
@@ -184,7 +181,7 @@ class EnabledFlagChangePostBody(BaseModel):
 @router.post("/{asset_id}/status-change")
 async def asset_status_change(asset_id: str, body: EnabledFlagChangePostBody):
     try:
-        Assets.set_enabled(id=asset_id, enabled=body.enabled, to_global=body.to_global)
+        project.get_project_assets().set_enabled(asset_id, enabled=body.enabled, to_global=body.to_global)
         return JSONResponse({"status": "ok"})
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

@@ -26,7 +26,7 @@ def create_materials_str(materials_ids: list | None, ai_can_add_extra_materials:
     # We add forced becuase it may influence the choice of enabled materials
     available_materials = []
     if materials_ids:
-        for material in project.get_project_assets().cached_assets.values():
+        for material in project.get_project_assets().unified_assets.values():
             if material[0].id in materials_ids:
                 available_materials.append(material[0])
 
@@ -34,9 +34,10 @@ def create_materials_str(materials_ids: list | None, ai_can_add_extra_materials:
         available_materials = [
             *available_materials,
             *[
-                asset
-                for asset in project.get_project_assets().assets_with_enabled_flag_set_to(True)
-                if asset.type == AssetType.MATERIAL
+                asset[0]
+                for asset in project.get_project_assets()
+                .filter_unified_assets(enabled=True, asset_type=AssetType.MATERIAL)
+                .values()
             ],
         ]
 
