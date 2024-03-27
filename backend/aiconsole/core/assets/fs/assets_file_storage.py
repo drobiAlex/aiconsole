@@ -67,7 +67,7 @@ class AssetsFileStorage:
         try:
             for asset_type in AssetType:
                 for path in self.paths:
-                    (path / f"{asset_type.value}s").mkdir(parents=True, exist_ok=True)
+                    self._get_asset_folder_path(asset_type, path).mkdir(parents=True, exist_ok=True)
 
             await self._load_assets()
             # FIXME: seems like between loading and spawning observer smth can happen
@@ -95,14 +95,10 @@ class AssetsFileStorage:
     async def update_asset(self, original_asset_id: str, updated_asset: Asset, scope: str | None = None) -> None:
         self._validate_asset(updated_asset, validation_scope="update")
 
-        project_assets_directory_path = get_project_assets_directory(updated_asset.type)
+        project_assets_directory_path = self._get_asset_folder_path(updated_asset.type, self.paths[0])
 
-        original_asset_file_path = self._get_asset_file_path(
-            original_asset_id, updated_asset.type, project_assets_directory_path
-        )
-        updated_asset_file_path = self._get_asset_file_path(
-            updated_asset.id, updated_asset.type, project_assets_directory_path
-        )
+        original_asset_file_path = self._get_asset_file_path(original_asset_id, updated_asset.type, self.paths[0])
+        updated_asset_file_path = self._get_asset_file_path(updated_asset.id, updated_asset.type, self.paths[0])
 
         # TODO: is this still needed?
         # if asset.type == AssetType.CHAT and await need_to_delete_chat_asset(asset, file_path):
@@ -220,8 +216,7 @@ class AssetsFileStorage:
     async def create_asset(self, asset: Asset) -> None:
         self._validate_asset(asset, validation_scope="create")
 
-        project_assets_directory_path = get_project_assets_directory(asset.type)
-        file_path = self._get_asset_file_path(asset.id, asset.type, project_assets_directory_path)
+        file_path = self._get_asset_file_path(asset.id, asset.type, self.paths[0])
 
         if asset.type == AssetType.CHAT:
             async with aiofiles.open(file_path, "w", encoding="utf8", errors="replace") as f:
@@ -303,10 +298,11 @@ class AssetsFileStorage:
                 extensions = []
 
         for extension in extensions:
-            asset_file_path = get_project_assets_directory(asset.type) / f"{asset_id}{extension}"
+            asset_file_path = self._get_asset_folder_path(asset.type, self.paths[0]) / f"{asset_id}{extension}"
             if asset_file_path.exists():
                 send2trash(asset_file_path)
 
+    # TODO: rework to use self.paths
     async def _load_assets(self) -> None:
         self._assets.clear()
 
@@ -349,9 +345,12 @@ class AssetsFileStorage:
                             )
                             continue
 
-    def _get_asset_file_path(self, asset_id: str, asset_type: AssetType, directory_path: Path) -> Path:
+    def _get_asset_folder_path(self, asset_type: AssetType, assets_folder_path: Path) -> Path:
+        return assets_folder_path / f"{asset_type.value}s"
+
+    def _get_asset_file_path(self, asset_id: str, asset_type: AssetType, assets_folder_path: Path) -> Path:
         extension = "json" if asset_type == AssetType.CHAT else "toml"
-        return directory_path / f"{asset_id}.{extension}"
+        return self._get_asset_folder_path(asset_type, assets_folder_path) / f"{asset_id}.{extension}"
 
     def _make_sure_starts_and_ends_with_newline(self, s: str) -> str:
         if not s.startswith("\n"):
@@ -371,8 +370,10 @@ class AssetsFileStorage:
 
         match validation_scope:
             case "create":
-                if asset.id in self._assets:
-                    raise ValueError(f"Asset with ID '{asset.id}' already exists.")
+                for path in self.paths:
+                    asset_file_path = self._get_asset_file_path(asset.id, asset.type, path)
+                    if asset_file_path.exists():
+                        raise ValueError(f"Asset with ID '{asset.id}' already exists.")
             case "update":
                 if asset.defined_in == AssetLocation.AICONSOLE_CORE:
                     raise ValueError(f"Asset located in '{AssetLocation.AICONSOLE_CORE.value}' cannot be updated")
