@@ -18,7 +18,9 @@ from aiconsole.core.chat.types import AICChat, AICMessage, AICMessageGroup, AICT
 from aiconsole.core.project.project import get_project_assets
 from fastmutation.apply_mutation import apply_mutation
 from fastmutation.data_context import DataContext
-from fastmutation.mutations import AssetMutation
+from fastmutation.mutations import (
+    AssetMutation,
+)
 from fastmutation.types import AnyRef, BaseObject, CollectionRef, ObjectRef
 
 _log = logging.getLogger(__name__)
@@ -92,9 +94,6 @@ async def _check_queue_and_create_task(ref: ObjectRef):
     task.add_done_callback(clear_task)
 
 
-global_lock = asyncio.Lock()
-
-
 class AICFileDataContext(DataContext):
 
     def __init__(self, origin: AICConnection | None, lock_id: str):
@@ -102,51 +101,50 @@ class AICFileDataContext(DataContext):
         self.origin = origin
 
     async def mutate(self, mutation: "AssetMutation", originating_from_server: bool) -> None:
-        async with global_lock:
-            try:
-                await apply_mutation(self, mutation)
+        try:
+            await apply_mutation(self, mutation)
 
-            except Exception as e:
-                _log.exception(f"Error during mutation: {e}")
-                raise
+        except Exception as e:
+            _log.exception(f"Error during mutation: {e}")
+            raise
 
-            # HANDLE DELETE
+        # HANDLE DELETE
 
-            # Remove message group if it's empty
-            # if not message_location.message_group.messages:
-            #     chat.message_groups = [group for group in chat.message_groups if group.id != message_location.message_group.id]
+        # Remove message group if it's empty
+        # if not message_location.message_group.messages:
+        #     chat.message_groups = [group for group in chat.message_groups if group.id != message_location.message_group.id]
 
-            # Remove message if it's empty
-            # if not tool_call.message.tool_calls and not tool_call.message.content:
-            #     tool_call.message_group.messages = [
-            #         m for m in tool_call.message_group.messages if m.id != tool_call.message.id
-            #     ]
+        # Remove message if it's empty
+        # if not tool_call.message.tool_calls and not tool_call.message.content:
+        #     tool_call.message_group.messages = [
+        #         m for m in tool_call.message_group.messages if m.id != tool_call.message.id
+        #     ]
 
-            # Remove message group if it's empty
-            # if not tool_call.message_group.messages:
-            #    chat.message_groups = [group for group in chat.message_groups if group.id != tool_call.message_group.id]
+        # Remove message group if it's empty
+        # if not tool_call.message_group.messages:
+        #    chat.message_groups = [group for group in chat.message_groups if group.id != tool_call.message_group.id]
 
-            # SET VSALUE
+        # SET VSALUE
 
-            # _handle_SetMessageGroupAgentIdMutation
-            # if mutation.actor_id == "user":
-            #     message_group.role = "user"
-            # else:
-            #    message_group.role = "assistant"
+        # _handle_SetMessageGroupAgentIdMutation
+        # if mutation.actor_id == "user":
+        #     message_group.role = "user"
+        # else:
+        #    message_group.role = "assistant"
 
-            await connection_manager().send_to_ref(
-                NotifyAboutAssetMutationServerMessage(
-                    request_id=self.lock_id,
-                    mutation=mutation,
-                ),
-                mutation.ref,
-                except_connection=None if originating_from_server else self.origin,
-            )
+        await connection_manager().send_to_ref(
+            NotifyAboutAssetMutationServerMessage(
+                request_id=self.lock_id,
+                mutation=mutation,
+            ),
+            mutation.ref,
+            except_connection=None if originating_from_server else self.origin,
+        )
 
     async def acquire_write_lock(self, ref: ObjectRef, originating_from_server: bool):
         _log.debug(f"Acquiring lock {ref} {self.lock_id}")
 
-        async with global_lock:
+        async def h():
             obj = await self.get(ref)
 
             if obj is not None and obj.lock_id:
@@ -157,10 +155,13 @@ class AICFileDataContext(DataContext):
             if self.origin and not originating_from_server:
                 self.origin.lock_acquired(ref=ref, request_id=self.lock_id)
 
+        await self.__in_sequence(ref, f=h)
+        await self.__wait_for_all_mutations(ref)
+
         # Potential deadlock in original code - What if one connection wants to acquire a lock and another is processing and wants to do another mutation in sequence?
 
     async def release_write_lock(self, ref: ObjectRef, originating_from_server: bool):
-        async with global_lock:
+        async def h():
             obj = await self.get(ref)
             if obj and obj.lock_id == self.lock_id:
                 del _no_lock_taken[ref]
@@ -171,6 +172,9 @@ class AICFileDataContext(DataContext):
                 await get_project_assets().save_asset(obj, obj.id, create=False)
             else:
                 raise Exception(f"Lock {ref} is not acquired by {self.lock_id}")
+
+        await self.__in_sequence(ref, h)
+        await self.__wait_for_all_mutations(ref)
 
     @overload
     async def get(self, ref: ObjectRef) -> "BaseObject | None":  # fmt: off
