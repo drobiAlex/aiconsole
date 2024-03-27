@@ -24,9 +24,7 @@ router = APIRouter()
 
 @router.get("/")
 async def fetch_assets():
-    assets = []
-
-    assets.extend(project.get_project_assets().unified_assets)
+    assets = [asset[0] for asset in project.get_project_assets().unified_assets.values()]
 
     return JSONResponse(
         [

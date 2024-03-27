@@ -10,14 +10,15 @@ from aiconsole.api.websockets.connection_manager import (
 from aiconsole.api.websockets.server_messages import (
     NotifyAboutAssetMutationServerMessage,
 )
+from aiconsole.core.assets.agents.agent import AICAgent
+from aiconsole.core.assets.materials.material import AICMaterial
+from aiconsole.core.assets.users.users import AICUserProfile
 from aiconsole.core.chat.root import Root
 from aiconsole.core.chat.types import AICChat, AICMessage, AICMessageGroup, AICToolCall
 from aiconsole.core.project.project import get_project_assets
 from fastmutation.apply_mutation import apply_mutation
 from fastmutation.data_context import DataContext
-from fastmutation.mutations import (
-    AssetMutation,
-)
+from fastmutation.mutations import AssetMutation
 from fastmutation.types import AnyRef, BaseObject, CollectionRef, ObjectRef
 
 _log = logging.getLogger(__name__)
@@ -85,7 +86,9 @@ class AICFileDataContext(DataContext):
         async with _lock:
             try:
                 await apply_mutation(self, mutation)
-                if mutation.ref not in _acquired_locks or (mutation.ref not in _acquired_locks and _acquired_locks[mutation.ref].is_set()):
+                if mutation.ref not in _acquired_locks or (
+                    mutation.ref not in _acquired_locks and _acquired_locks[mutation.ref].is_set()
+                ):
                     await self.asset_operation_manager.execute_operations()
             except Exception as e:
                 _log.exception(f"Error during mutation: {e}")
@@ -151,9 +154,6 @@ class AICFileDataContext(DataContext):
             else:
                 raise Exception(f"Lock {ref} is not acquired by {self.lock_id}")
 
-        await self.__in_sequence(ref, h)
-        await self.__wait_for_all_mutations(ref)
-
     @overload
     async def get(self, ref: ObjectRef) -> "BaseObject | None":  # fmt: off
         ...
@@ -212,11 +212,3 @@ class AICFileDataContext(DataContext):
             "AICAgent": AICAgent,
             "AICUserProfile": AICUserProfile,
         }
-
-    async def __wait_for_all_mutations(self, ref: ObjectRef):
-        while not _waiting_mutations[ref].empty() or _running_mutations[ref] is not None:
-            await _mutation_complete_events[ref].wait()
-
-    async def __in_sequence(self, ref: ObjectRef, f: Callable[[], Coroutine]):
-        await _waiting_mutations[ref].put(f)
-        await _check_queue_and_create_task(ref)
