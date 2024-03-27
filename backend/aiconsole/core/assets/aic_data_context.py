@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from collections import defaultdict
-from typing import Any, Type, cast, overload
+from typing import Any, Callable, Coroutine, Type, cast, overload
 
 from aiconsole.api.websockets.connection_manager import (
     AICConnection,
@@ -31,6 +31,9 @@ def create_set_event() -> asyncio.Event:
 
 
 _no_lock_taken: dict[ObjectRef, asyncio.Event] = defaultdict(create_set_event)
+_waiting_mutations: dict[ObjectRef, asyncio.Queue[Callable[[], Coroutine]]] = defaultdict(asyncio.Queue)
+_running_mutations: dict[ObjectRef, asyncio.Task | None] = defaultdict(lambda: None)
+_mutation_complete_events: dict[ObjectRef, asyncio.Event] = defaultdict(asyncio.Event)
 
 
 def _find_object(root: BaseObject, obj: ObjectRef) -> BaseObject | None:
@@ -60,6 +63,33 @@ async def _wait_for_lock(ref: ObjectRef, lock_timeout=30) -> None:
         await asyncio.wait_for(_no_lock_taken[ref].wait(), timeout=lock_timeout)
     except asyncio.TimeoutError:
         raise Exception(f"Lock acquisition timed out for {ref}")
+
+
+async def _check_queue_and_create_task(ref: ObjectRef):
+    if _running_mutations[ref] is not None or _waiting_mutations[ref].empty():
+        return
+
+    h = await _waiting_mutations[ref].get()
+    task = asyncio.create_task(h())
+    _running_mutations[ref] = task
+
+    def clear_task(future):
+        # Schedule the coroutine using asyncio.create_task or similar
+        asyncio.create_task(clear_task_coroutine(future))
+
+    async def clear_task_coroutine(future):
+        _running_mutations[ref] = None
+        # unblock those who are .wait()
+        _mutation_complete_events[ref].set()
+        # reset the event
+        _mutation_complete_events[ref].clear()
+        # current programm can have multiple event loops
+        # created event will only work within one loop
+        del _mutation_complete_events[ref]
+
+        await _check_queue_and_create_task(ref)
+
+    task.add_done_callback(clear_task)
 
 
 global_lock = asyncio.Lock()
@@ -200,3 +230,11 @@ class AICFileDataContext(DataContext):
             "AICAgent": AICAgent,
             "AICUserProfile": AICUserProfile,
         }
+
+    async def __wait_for_all_mutations(self, ref: ObjectRef):
+        while not _waiting_mutations[ref].empty() or _running_mutations[ref] is not None:
+            await _mutation_complete_events[ref].wait()
+
+    async def __in_sequence(self, ref: ObjectRef, f: Callable[[], Coroutine]):
+        await _waiting_mutations[ref].put(f)
+        await _check_queue_and_create_task(ref)
