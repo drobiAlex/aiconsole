@@ -28,7 +28,7 @@ export type ProjectSlice = {
   isProjectLoading: boolean;
   isProjectOpen: boolean;
   isProjectSwitchFetching: boolean;
-  onProjectOpened: ({ path, name, initial }: { path: string; name: string; initial: boolean }) => Promise<void>;
+  onProjectOpened: ({ path, name }: { path: string; name: string }) => Promise<void>;
   onProjectClosed: () => Promise<void>;
   onProjectLoading: () => void;
   resetProjectSwitchFetching: () => void;
@@ -41,7 +41,7 @@ export const useProjectStore = create<ProjectSlice>((set, _) => ({
   isProjectLoading: true,
   isProjectOpen: false,
   isProjectSwitchFetching: false,
-  onProjectOpened: async ({ path, name, initial }: { path: string; name: string; initial: boolean }) => {
+  onProjectOpened: async ({ path, name }: { path: string; name: string }) => {
     if (!path || !name) {
       throw new Error('Project path or name is not defined');
     }
@@ -55,10 +55,7 @@ export const useProjectStore = create<ProjectSlice>((set, _) => ({
     }));
 
     await Promise.all([useChatStore.getState().initCommandHistory()]);
-
-    if (initial) {
-      await Promise.all([useAssetStore.getState().initAssets(), useSettingsStore.getState().initSettings()]);
-    }
+    await Promise.all([useAssetStore.getState().initAssets(), useSettingsStore.getState().initSettings()]);
   },
   onProjectClosed: async () => {
     set(() => ({

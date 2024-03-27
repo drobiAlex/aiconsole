@@ -41,7 +41,6 @@ export async function handleServerMessage(message: ServerMessage) {
         useProjectStore.getState().onProjectOpened({
           name: message.project_name,
           path: message.project_path,
-          initial: true,
         });
       } else {
         useProjectStore.getState().onProjectClosed();
@@ -51,7 +50,6 @@ export async function handleServerMessage(message: ServerMessage) {
       useProjectStore.getState().onProjectOpened({
         name: message.name,
         path: message.path,
-        initial: false,
       });
       break;
     case 'ProjectClosedServerMessage':
