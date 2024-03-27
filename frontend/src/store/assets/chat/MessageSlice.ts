@@ -93,13 +93,13 @@ export const createMessageSlice: StateCreator<ChatStore, [], [], MessageSlice> =
     await get().lockChat(lockId);
 
     try {
-      const chat = get().chat;
+      const chat = get()?.chat;
 
       if (!chat) {
         throw new Error('Chat is not initialized');
       }
 
-      const copiedChat = JSON.parse(JSON.stringify(chat));
+      const copiedChat = deepCopyObject(chat);
       const mutatedChat = (await mutationAction(copiedChat, lockId)) as AICChat;
 
       set(() => {
