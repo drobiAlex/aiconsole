@@ -184,3 +184,4 @@ dist-ssr
 /settings.toml
 .vite
 /chat_test_framework
+/ffmpeg

@@ -18,7 +18,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from openai import BaseModel, OpenAI
 
-from aiconsole_toolkit.settings import get_settings
+from aiconsole.core.settings.settings import settings
 
 router = APIRouter()
 
@@ -31,7 +31,7 @@ class TextToSpeechPayload(BaseModel):
 async def text_to_speech(text: TextToSpeechPayload):
     try:
         # Initialize the OpenAI client
-        openai_key = get_settings().openai_api_key
+        openai_key = openai_key = settings().unified_settings.openai_api_key
         client = OpenAI(api_key=openai_key)
 
         # Use the OpenAI API to convert text to speech with the specified format

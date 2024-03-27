@@ -37,13 +37,13 @@ export const API_HOOKS: Hooks = {
         typeof res.detail === 'object' && res.detail !== null ? res.detail.message : res.detail || error.message;
       console.error(message);
 
-      if (typeof res.detail === 'object' && !res.detail.display) {
+      if (typeof res.detail === 'object' && res.detail.display !== undefined && !res.detail.display) {
         return error;
       }
 
       showToast({
         title: 'Error',
-        message: message,
+        message: message || error.message,
         variant: 'error',
       });
 

@@ -19,7 +19,7 @@ import { cn } from '@/utils/common/cn';
 import { useCallback, useEffect, useState } from 'react';
 import { CodeInput } from '../../CodeInput';
 import { MessageControls } from './MessageControls';
-import { useTTSStore } from '@/audio/useTTSStore';
+import { useTTSStore } from '@/utils/audio/useTTSStore';
 
 interface EditableContentMessageProps {
   enableTTS?: boolean;

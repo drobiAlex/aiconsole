@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { AudioAPI } from '@/audio/AudioAPI';
+import { AudioAPI } from '@/api/api/AudioAPI';
 
 interface SoundPromise {
   promise: Promise<Howl>;

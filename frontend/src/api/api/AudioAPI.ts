@@ -16,10 +16,10 @@
 
 import { Howl } from 'howler';
 import ky from 'ky';
-import { getBaseURL } from '../store/useAPIStore';
+import { API_HOOKS, getBaseURL } from '../../store/useAPIStore';
 
 const textToSpeech = async (text: string): Promise<Howl> => {
-  const response = await ky.post(`${getBaseURL()}/tts`, { json: { text } });
+  const response = await ky.post(`${getBaseURL()}/tts`, { json: { text }, hooks: API_HOOKS });
   const blob = await response.blob();
   const url = URL.createObjectURL(blob);
 
@@ -32,6 +32,15 @@ const textToSpeech = async (text: string): Promise<Howl> => {
   return sound;
 };
 
+const speechToText = async (audio: Blob): Promise<string> => {
+  const formData = new FormData();
+  formData.append('audio', audio);
+  const response = await ky.post(`${getBaseURL()}/stt`, { body: formData, hooks: API_HOOKS });
+  const json = (await response.json()) as { transcription: string };
+  return json.transcription;
+};
+
 export const AudioAPI = {
   textToSpeech,
+  speechToText,
 };

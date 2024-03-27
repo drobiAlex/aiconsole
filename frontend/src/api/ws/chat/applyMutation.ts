@@ -1,4 +1,4 @@
-import { useTTSStore } from '@/audio/useTTSStore';
+import { useTTSStore } from '@/utils/audio/useTTSStore';
 import { Asset } from '@/types/assets/assetTypes';
 import { AICChat } from '@/types/assets/chatTypes';
 import { getRefSegments } from '@/utils/assets/getRefSegments';
