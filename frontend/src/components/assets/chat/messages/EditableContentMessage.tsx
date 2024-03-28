@@ -19,7 +19,7 @@ import { cn } from '@/utils/common/cn';
 import { useCallback, useEffect, useState } from 'react';
 import { CodeInput } from '../../CodeInput';
 import { MessageControls } from './MessageControls';
-import { useTTSStore } from '@/utils/audio/useTTSStore';
+import { useAudioStore } from '@/store/audio/useAudioStore';
 
 interface EditableContentMessageProps {
   enableTTS?: boolean;
@@ -47,11 +47,11 @@ export function EditableContentMessage({
   setIsEditing,
 }: EditableContentMessageProps) {
   const isBeingProcessed = useChatStore((state) => !!state.chat?.lock_id);
-  const isPlaying = useTTSStore((state) => state.isPlaying);
-  const numLoading = useTTSStore((state) => state.numLoading);
-  const hasAutoPlay = useTTSStore((state) => state.hasAutoPlay);
-  const readText = useTTSStore((state) => state.readText);
-  const stopReading = useTTSStore((state) => state.stopReading);
+  const isPlaying = useAudioStore((state) => state.isPlaying);
+  const numLoading = useAudioStore((state) => state.numLoading);
+  const hasAutoPlay = useAudioStore((state) => state.isVoiceModeEnabled);
+  const readText = useAudioStore((state) => state.readText);
+  const stopReading = useAudioStore((state) => state.stopReading);
 
   const [content, setContent] = useState(initialContent);
 

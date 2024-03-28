@@ -22,7 +22,7 @@ import aiofiles
 import aiofiles.os
 import httpx
 from fastapi import APIRouter, File, HTTPException, UploadFile
-from pydub import AudioSegment
+from pydub import AudioSegment  # type: ignore
 
 from aiconsole.consts import DIR_WITH_AICONSOLE_PACKAGE
 from aiconsole.core.settings.settings import settings

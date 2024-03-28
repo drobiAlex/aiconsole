@@ -19,13 +19,13 @@ import ky from 'ky';
 import { API_HOOKS, getBaseURL } from '../../store/useAPIStore';
 
 const textToSpeech = async (text: string): Promise<Howl> => {
-  const response = await ky.post(`${getBaseURL()}/tts`, { json: { text }, hooks: API_HOOKS });
+  const response = await ky.post(`${getBaseURL()}/tts`, { json: { text, format: 'mp3' }, hooks: API_HOOKS });
   const blob = await response.blob();
   const url = URL.createObjectURL(blob);
 
   const sound = new Howl({
     src: [url],
-    format: ['opus'],
+    format: ['mp3'],
     html5: true, // Enable HTML5 Audio to force audio streaming without loading the full file upfront
   });
 

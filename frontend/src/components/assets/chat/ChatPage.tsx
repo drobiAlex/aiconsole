@@ -36,10 +36,22 @@ import { EditorHeader } from '../EditorHeader';
 import { CommandInput } from './CommandInput';
 import { Spinner } from './Spinner';
 import React from 'react';
+import { AudioAPI } from '@/api/api/AudioAPI';
+import { useAudioStore } from '@/store/audio/useAudioStore';
 
 // Electron adds the path property to File objects
 interface FileWithPath extends File {
   path: string;
+}
+
+function enableSoundsInBrowser() {
+  const sound = new Howl({
+    src: ['https://github.com/rafaelreis-hotmart/Audio-Sample-files/raw/master/sample.mp3'],
+    format: ['mp3'],
+    html5: true, // Enable HTML5 Audio to force audio streaming without loading the full file upfront
+  });
+  sound.play();
+  sound.stop();
 }
 
 export function ChatWindowScrollToBottomSave() {
@@ -198,11 +210,9 @@ export const ChatPage = React.memo(function ChatPage() {
     };
   }, [stopWork]); //Initentional trigger when chat_id changes
 
-  const isProcessesAreNotRunning = !isExecutionRunning && !isAnalysisRunning;
+  const areProcessesAreNotRunning = !isExecutionRunning && !isAnalysisRunning;
 
-  if (!chat) {
-    return <div className="flex flex-1 justify-center items-center">{showSpinner && <Spinner />}</div>;
-  }
+  const recorderControls = useAudioStore();
 
   const handleRename = async (newName: string) => {
     if (newName !== chat.name) {
@@ -228,42 +238,68 @@ export const ChatPage = React.memo(function ChatPage() {
     }
   };
 
-  const getActionButton = () => {
-    if (hasAnyCommandInput) {
-      return {
-        label: 'Send',
-        icon: SendRotated,
-        action: async () => {
-          await submitCommand(command);
-          await newCommand();
-        },
+  const setCommand = useChatStore((state) => state.editCommand);
+
+  useEffect(() => {
+    useAudioStore.setState(recorderControls);
+  }, [recorderControls]);
+
+  useEffect(() => {
+    console.log('recorderControls', recorderControls, useAudioStore.getState().isVoiceModeEnabled);
+    if (!recorderControls || !recorderControls.recordingBlob || !useAudioStore.getState().isVoiceModeEnabled) return;
+
+    const uploadAudioAndTranscribe = async () => {
+      if (!recorderControls.recordingBlob) return;
+
+      const audioPromise = AudioAPI.speechToText(recorderControls.recordingBlob);
+      const transcribedText = await audioPromise;
+      const newCmd = command ? `${command} ${transcribedText}` : transcribedText;
+      setCommand(newCmd);
+      await submitCommand(newCmd);
+      await newCommand();
+    };
+
+    uploadAudioAndTranscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recorderControls.recordingBlob]);
+
+  if (!chat) {
+    return <div className="flex flex-1 justify-center items-center">{showSpinner && <Spinner />}</div>;
+  }
+
+  let actionButtonLabel, actionButtonIcon, actionButtonAction;
+
+  if (hasAnyCommandInput || recorderControls.isRecording) {
+    actionButtonLabel = 'Send';
+    actionButtonIcon = SendRotated;
+    if (recorderControls.isRecording) {
+      actionButtonAction = () => {
+        enableSoundsInBrowser();
+        recorderControls.stopRecording();
       };
     } else {
-      if (isProcessesAreNotRunning && isLastMessageFromUser) {
-        return {
-          label: 'Get reply',
-          icon: ReplyIcon,
-          action: () => submitCommand(``),
-        };
-      }
-
-      if (isProcessesAreNotRunning && !isLastMessageFromUser) {
-        return {
-          label: 'Are you stuck? Let me guide you',
-          icon: QuestionMarkIcon,
-          action: () => submitCommand(COMMANDS.GUIDE_ME),
-        };
-      }
-
-      return {
-        label: 'Stop ' + (isAnalysisRunning ? ' analysis' : ' generation'),
-        icon: Square,
-        action: stopWork,
+      actionButtonAction = async () => {
+        await submitCommand(command);
+        await newCommand();
       };
     }
-  };
-
-  const { label: actionButtonLabel, icon: ActionButtonIcon, action: actionButtonAction } = getActionButton();
+  } else {
+    if (areProcessesAreNotRunning && isLastMessageFromUser) {
+      actionButtonLabel = 'Get reply';
+      actionButtonIcon = ReplyIcon;
+      actionButtonAction = () => {
+        submitCommand(``);
+      };
+    } else if (areProcessesAreNotRunning && !isLastMessageFromUser) {
+      actionButtonLabel = 'Are you stuck? Let me guide you';
+      actionButtonIcon = QuestionMarkIcon;
+      actionButtonAction = () => submitCommand(COMMANDS.GUIDE_ME);
+    } else {
+      actionButtonLabel = 'Stop ' + (isAnalysisRunning ? ' analysis' : ' generation');
+      actionButtonIcon = Square;
+      actionButtonAction = stopWork;
+    }
+  }
 
   return (
     <div className="flex flex-col w-full h-full max-h-full overflow-hidden">
@@ -294,7 +330,7 @@ export const ChatPage = React.memo(function ChatPage() {
         </div>
         <CommandInput
           className="mt-auto"
-          actionIcon={ActionButtonIcon}
+          actionIcon={actionButtonIcon}
           actionLabel={actionButtonLabel}
           onSubmit={actionButtonAction}
           textAreaRef={textAreaRef}

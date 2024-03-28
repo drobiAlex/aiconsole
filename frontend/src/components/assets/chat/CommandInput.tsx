@@ -21,15 +21,15 @@ import { useChatStore } from '@/store/assets/chat/useChatStore';
 import { useAssetStore } from '@/store/assets/useAssetStore';
 import { Material } from '@/types/assets/assetTypes';
 import { cn } from '@/utils/common/cn';
-import { BanIcon, LucideIcon, MicIcon, X } from 'lucide-react';
-import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { BanIcon, LucideIcon, MicIcon, MicOffIcon, X } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import { ActorAvatar } from './ActorAvatar';
 import ChatOptions from './ChatOptions';
-import { useAudioRecorder } from 'react-audio-voice-recorder';
-import { StopIcon } from '@/components/common/icons/StopIcon';
+// @ts-expect-error - no types available
 import { LiveAudioVisualizer } from 'react-audio-visualize';
-import { AudioAPI } from '@/api/api/AudioAPI';
+import { useAudioStore } from '@/store/audio/useAudioStore';
+import { Spinner } from './Spinner';
 
 interface MessageInputProps {
   actionIcon: LucideIcon | ((props: React.SVGProps<SVGSVGElement>) => JSX.Element);
@@ -38,12 +38,6 @@ interface MessageInputProps {
   onSubmit?: (command: string) => void;
   textAreaRef: React.RefObject<HTMLTextAreaElement>;
 }
-
-interface VoiceRecorderProps {
-  onSubmit?: (command: string) => void;
-}
-
-export const VoiceRecorder = ({ onSubmit }: VoiceRecorderProps) => {};
 
 export const CommandInput = ({ className, onSubmit, actionIcon, actionLabel, textAreaRef }: MessageInputProps) => {
   const ActionIcon = actionIcon;
@@ -198,36 +192,8 @@ export const CommandInput = ({ className, onSubmit, actionIcon, actionLabel, tex
     setAICanAddExtraMaterials(true);
   };
 
-  const {
-    startRecording,
-    stopRecording,
-    togglePauseResume,
-    recordingBlob,
-    isRecording,
-    isPaused,
-    recordingTime,
-    mediaRecorder,
-  } = useAudioRecorder();
-  const [isAudipProcessed, setIsAudioProcessed] = useState(true);
-
-  useEffect(() => {
-    if (!recordingBlob) return;
-
-    setIsAudioProcessed(false);
-
-    const uploadAudioAndTranscribe = async () => {
-      const audioPromise = AudioAPI.speechToText(recordingBlob);
-      audioPromise.then(
-        () => setIsAudioProcessed(true),
-        () => setIsAudioProcessed(true),
-      );
-      const newCommand = await audioPromise;
-      setCommand(command ? `${command} ${newCommand}` : newCommand);
-    };
-
-    uploadAudioAndTranscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recordingBlob]);
+  const hasAutoPlay = useAudioStore((state) => state.isVoiceModeEnabled);
+  const mediaRecorder = useAudioStore((state) => state.mediaRecorder);
 
   return (
     <div className={cn(className, 'flex w-full flex-col px-4 py-[20px] bg-gray-900 z-50')}>
@@ -323,31 +289,38 @@ export const CommandInput = ({ className, onSubmit, actionIcon, actionLabel, tex
           )}
 
           <div>
-            {isRecording || !isAudipProcessed ? (
-              <div className="flex flex-row justify-center items-center gap-2 m-2">
+            {hasAutoPlay ? (
+              <div className="flex flex-row justify-center items-center gap-2 m-3">
                 <div className="flex-grow flex justify-center items-center overflow-hidden">
-                  <div className="h-[30px]">
+                  <div className="h-[24px]">
                     {mediaRecorder && (
                       <LiveAudioVisualizer
                         mediaRecorder={mediaRecorder}
-                        height={30}
+                        height={24}
                         width={300}
                         barWidth={1}
                         gap={0}
                         barColor={'#ffffff'}
                       />
                     )}
+                    {!mediaRecorder && <Spinner width={24} height={24} />}
                   </div>
                 </div>
-                {isAudipProcessed && (
-                  <Icon icon={StopIcon} onClick={stopRecording} className="w-6 h-6 text-gray-400 cursor-pointer" />
-                )}
+
+                <Icon
+                  icon={MicIcon}
+                  onClick={() => {
+                    useAudioStore.setState({ isVoiceModeEnabled: false });
+                    useAudioStore.getState().stopRecording();
+                  }}
+                  className="w-6 h-6 text-gray-400 cursor-pointer text-primary"
+                />
               </div>
             ) : (
-              <div className="flex flex-row">
+              <div className="flex flex-row justify-center items-center gap-2 m-3">
                 <TextareaAutosize
                   ref={textAreaRef}
-                  className="w-full bg-transparent text-[15px] text-white resize-none overflow-y-auto px-[20px] py-[12px] placeholder:text-gray-400 focus:outline-none"
+                  className="w-full bg-transparent text-[15px] text-white resize-none overflow-y-auto placeholder:text-gray-400 focus:outline-none"
                   value={command}
                   onChange={handleChange}
                   onFocus={handleFocus}
@@ -357,9 +330,13 @@ export const CommandInput = ({ className, onSubmit, actionIcon, actionLabel, tex
                   maxRows={4}
                 />
                 <Icon
-                  icon={MicIcon}
-                  onClick={startRecording}
-                  className="w-6 h-6 m-[10px] text-gray-400 cursor-pointer"
+                  icon={MicOffIcon}
+                  onClick={() => {
+                    useAudioStore.getState().startRecording();
+                    useAudioStore.getState().stopReading();
+                    useAudioStore.setState({ isVoiceModeEnabled: true });
+                  }}
+                  className="w-6 h-6 text-gray-400 cursor-pointer"
                 />
               </div>
             )}

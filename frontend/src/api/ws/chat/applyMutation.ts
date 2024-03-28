@@ -1,4 +1,4 @@
-import { useTTSStore } from '@/utils/audio/useTTSStore';
+import { useAudioStore } from '@/store/audio/useAudioStore';
 import { Asset } from '@/types/assets/assetTypes';
 import { AICChat } from '@/types/assets/chatTypes';
 import { getRefSegments } from '@/utils/assets/getRefSegments';
@@ -60,8 +60,8 @@ function handleSetValueMutation(asset: Asset | AICChat, mutation: SetValueMutati
 
   // Finish playing speech if content has finished changing
   // Should probably be added externally as an additional handler for is_streaming (using some kind of staticlly typed ref?)
-  if (useTTSStore.getState().hasAutoPlay && key === 'is_streaming' && !value) {
-    useTTSStore.getState().readText(assetToChange['content'], false);
+  if (useAudioStore.getState().isVoiceModeEnabled && key === 'is_streaming' && !value) {
+    useAudioStore.getState().readText(assetToChange['content'], false);
   }
 }
 
@@ -74,8 +74,8 @@ function handleAppendToStringMutation(asset: Asset | AICChat, mutation: AppendTo
 
   // Play Speech if content is changed
   // Should probably be added externally as an additional handler for is_streaming (using some kind of staticlly typed ref?)
-  if (useTTSStore.getState().hasAutoPlay && key === 'content') {
-    useTTSStore.getState().readText(assetToChange[key], true);
+  if (useAudioStore.getState().isVoiceModeEnabled && key === 'content') {
+    useAudioStore.getState().readText(assetToChange[key], true);
   }
 }
 

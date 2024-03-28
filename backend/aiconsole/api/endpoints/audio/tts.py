@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Literal
+
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from openai import BaseModel, OpenAI
@@ -25,6 +27,7 @@ router = APIRouter()
 
 class TextToSpeechPayload(BaseModel):
     text: str
+    format: Literal["mp3", "opus", "aac"] = "opus"
 
 
 @router.post("/tts")
@@ -35,13 +38,15 @@ async def text_to_speech(text: TextToSpeechPayload):
         client = OpenAI(api_key=openai_key)
 
         # Use the OpenAI API to convert text to speech with the specified format
-        response = client.audio.speech.create(model="tts-1", voice="alloy", input=text.text, response_format="opus")
+        response = client.audio.speech.create(
+            model="tts-1", voice="alloy", input=text.text, response_format=text.format
+        )
 
         # Stream the audio data directly to the client
         def generate_audio_stream():
             for data in response.iter_bytes():
                 yield data
 
-        return StreamingResponse(generate_audio_stream(), media_type="audio/opus")
+        return StreamingResponse(generate_audio_stream(), media_type="audio/" + text.format)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
