@@ -26,20 +26,25 @@ const checkKey = (key: string) => {
 };
 
 async function setUserAvatar(avatar: FormData) {
-  return ky.post(`${getBaseURL()}/profile_image`, { body: avatar, hooks: API_HOOKS });
+  return ky.post(`${getBaseURL()}/profile_image`, {body: avatar, hooks: API_HOOKS});
+}
+
+async function deleteUserAvatar() {
+  return ky.delete(`${getBaseURL()}/profile_image`, {hooks: API_HOOKS});
 }
 
 async function saveSettings(params: { to_global: boolean } & PartialSettingsData) {
-  return ky.patch(`${getBaseURL()}/api/settings`, { json: params, hooks: API_HOOKS });
+  return ky.patch(`${getBaseURL()}/api/settings`, {json: params, hooks: API_HOOKS});
 }
 
 async function getSettings(): Promise<SettingsData> {
-  return ky.get(`${getBaseURL()}/api/settings`, { hooks: API_HOOKS, timeout: 60000 }).json();
+  return ky.get(`${getBaseURL()}/api/settings`, {hooks: API_HOOKS, timeout: 60000}).json();
 }
 
 export const SettingsAPI = {
   saveSettings,
   getSettings,
   setUserAvatar,
+  deleteUserAvatar,
   checkKey,
 };

@@ -6,7 +6,6 @@ from mimetypes import guess_type
 from pathlib import Path
 from uuid import uuid4
 
-from aiconsole.core.assets.types import AssetType
 from aiconsole.core.assets.users.users import AICUserProfile
 from aiconsole.core.project import project
 from aiconsole.core.settings.settings import settings
@@ -15,7 +14,6 @@ from aiconsole.utils.resource_to_path import resource_to_path
 from aiconsole_toolkit.settings.partial_settings_data import PartialSettingsData
 
 _log = logging.getLogger(__name__)
-
 
 DEFAULT_AVATARS_PATH = "aiconsole.preinstalled.avatars"
 DEFAULT_USERNAME = "User"
@@ -89,6 +87,17 @@ class UserProfileService:
             file = img.read()
         mime_type, _ = guess_type(img_filename)
         return self._encode_data_uri(file, mime_type)
+
+    # noinspection PyMethodMayBeStatic
+    def delete_avatar(self) -> bool:
+        try:
+            settings().save(
+                PartialSettingsData(user_profile=PartialUserProfile(profile_picture=b'')),
+                to_global=True)
+        except ValueError as e:
+            _log.error(f"Failed to delete the profile image: {e}")
+            return False
+        return True
 
     def _deterministic_choice(self, blob: str, choices: list[Path]) -> Path:
         hash_value = hashlib.sha256(string=blob.encode()).hexdigest()

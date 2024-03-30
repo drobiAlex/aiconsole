@@ -18,18 +18,19 @@ import { Controller, useWatch } from 'react-hook-form';
 import type { Control } from 'react-hook-form';
 import { Pencil } from 'lucide-react';
 
-import ImageUploader from '@/components/common/ImageUploader';
+import AvatarUploader from '@/components/common/AvatarUploader.tsx';
 import { Icon } from '@/components/common/icons/Icon';
 import { TextInput } from '@/components/assets/TextInput';
 import { GlobalSettingsFormData } from '@/forms/globalSettingsForm';
 
 interface GlobalSettingsUserSectionProps {
   control: Control<GlobalSettingsFormData>;
-  onImageSelected: (avatar: File) => void;
+  onAvatarSelected: (avatar: File) => void;
+  onAvatarDeleted: () => void;
   avatarBase64?: string;
 }
 
-const GlobalSettingsUserSection = ({ onImageSelected, avatarBase64, control }: GlobalSettingsUserSectionProps) => {
+const GlobalSettingsUserSection = ({ onAvatarSelected, onAvatarDeleted, avatarBase64, control }: GlobalSettingsUserSectionProps) => {
   const [isEditMode, setIsEditMode] = useState(false);
 
   const watchName = useWatch({ control, name: 'user_profile.display_name' });
@@ -38,9 +39,10 @@ const GlobalSettingsUserSection = ({ onImageSelected, avatarBase64, control }: G
 
   return (
     <div className="flex items-stretch w-full gap-[30px] bg-secondary-gradient p-5 rounded-xl mb-5 border-gray-600 border">
-      <ImageUploader
-        currentImage={avatarBase64}
-        onUpload={(avatar) => onImageSelected(new File([avatar], 'avatar'))}
+      <AvatarUploader
+        currentAvatar={avatarBase64}
+        onAvatarUpload={(avatar) => onAvatarSelected(new File([avatar], 'avatar'))}
+        onAvatarDelete={onAvatarDeleted}
       />
       <div className="flex flex-col justify-between">
         <div className="flex gap-2.5 flex-col">

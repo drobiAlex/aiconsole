@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { ExecutionModeParamField, getExecutionModeParamsSchema } from '@/api/api/ExecutionModeAPI';
 import { FormGroup } from '@/components/common/FormGroup';
-import ImageUploader from '@/components/common/ImageUploader';
+import AvatarUploader from '@/components/common/AvatarUploader.tsx';
 import { Select } from '@/components/common/Select';
 import { useAssetStore } from '@/store/assets/useAssetStore';
 import { useAPIStore } from '@/store/useAPIStore';
@@ -123,9 +123,9 @@ export const AgentForm = ({
   return (
     <>
       <div className="flex gap-[20px]">
-        <ImageUploader
-          currentImage={avatarUrl}
-          onUpload={(avatar: string) => handleSetImage(new File([avatar], 'avatar'))}
+        <AvatarUploader
+          currentAvatar={avatarUrl}
+          onAvatarUpload={(avatar: string) => handleSetImage(new File([avatar], 'avatar'))}
         />
         <FormGroup className="w-full">
           <TextInput

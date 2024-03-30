@@ -46,3 +46,12 @@ def set_profile_image(
         )
     except MissingFileName:
         return HTTPException(status_code=400, detail="Missing a file name.")
+
+
+@router.delete("/profile_image", status_code=status.HTTP_204_NO_CONTENT)
+def delete_profile_image(
+        user_profile_service: UserProfileService = Depends(dependency=user_profile_service)
+):
+    deleted = user_profile_service.delete_avatar()
+    if not deleted:
+        return HTTPException(status_code=400, detail="Failed to delete the profile image.")

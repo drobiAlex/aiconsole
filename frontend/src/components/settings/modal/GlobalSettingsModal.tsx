@@ -40,6 +40,7 @@ export const GlobalSettingsModal = () => {
   const openAiApiKey = useSettingsStore((state) => state.settings.openai_api_key);
   const codeAutorun = useSettingsStore((state) => state.settings.code_autorun);
   const saveSettings = useSettingsStore((state) => state.saveSettings);
+  const deleteAvatar = useSettingsStore((state) => state.deleteUserAvatar);
 
   const [confirmationDialogOpen, setConfirmationDialogOpen] = useState(false);
 
@@ -96,7 +97,7 @@ export const GlobalSettingsModal = () => {
   };
 
   const handleSetAvatarImage = (avatar: File) => setValue('avatar', avatar, { shouldDirty: true });
-
+  const handleDeleteAvatar = () => deleteAvatar();
   const handleSetAutorun = (autorun: boolean) => setValue('code_autorun', autorun, { shouldDirty: true });
 
   const handleModalClose = () => {
@@ -133,7 +134,8 @@ export const GlobalSettingsModal = () => {
                 <GlobalSettingsUserSection
                   control={control}
                   avatarBase64={profilePicture}
-                  onImageSelected={handleSetAvatarImage}
+                  onAvatarSelected={handleSetAvatarImage}
+                  onAvatarDeleted={handleDeleteAvatar}
                 />
                 <GlobalSettingsApiSection control={control} />
                 <GlobalSettingsCodeSection control={control} onChange={handleSetAutorun} />

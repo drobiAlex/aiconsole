@@ -30,6 +30,7 @@ export type SettingsStore = {
   setAutoCodeExecution: (autoRun: boolean) => void;
   saveSettings: (settings: PartialSettingsData, isGlobal: boolean, avatar?: FormData | null) => Promise<void>;
   validateApiKey: (key: string) => Promise<boolean>;
+  deleteUserAvatar: () => Promise<void>;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -123,4 +124,12 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
     return key_ok;
   },
+  deleteUserAvatar: async () => {
+    await SettingsAPI.deleteUserAvatar();
+    set(
+      produce((state: SettingsStore) => {
+        state.settings.user_profile.profile_picture = '';
+      }),
+    );
+  }
 }));

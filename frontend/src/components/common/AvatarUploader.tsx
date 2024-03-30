@@ -1,46 +1,49 @@
 import { ContextMenuItems } from '@/types/common/contextMenu';
 import { cn } from '@/utils/common/cn';
-import { Loader, Plus, Upload } from 'lucide-react';
+import { Loader, Plus, Trash, Upload } from 'lucide-react';
 import { ChangeEvent, MouseEvent, useEffect, useRef, useState } from 'react';
 import { ContextMenu, ContextMenuRef } from './ContextMenu';
 import { Icon } from './icons/Icon';
 
 interface ImageUploaderProps {
-  currentImage?: string;
-  onUpload?: (avatar: string) => void;
+  currentAvatar?: string;
+  onAvatarUpload?: (avatar: string) => void;
+  onAvatarDelete?: () => void;
 }
 
 // TODO: update this component with generating ai logic and connect with backend
-const ImageUploader = ({ currentImage, onUpload }: ImageUploaderProps) => {
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
+const AvatarUploader = ({ currentAvatar, onAvatarUpload, onAvatarDelete }: ImageUploaderProps) => {
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isGenerating, _setIsGenerating] = useState(false);
 
   useEffect(() => {
-    if (currentImage) {
-      setPreviewImage(currentImage);
+    if (currentAvatar) {
+      setAvatarPreview(currentAvatar);
     }
-  }, [currentImage]);
+  }, [currentAvatar]);
 
-  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
         if (typeof reader.result === 'string') {
-          setPreviewImage(reader.result);
+          setAvatarPreview(reader.result);
         }
       };
       reader.readAsDataURL(file);
       reader.onload = () => {
-        onUpload?.(reader.result as string);
+        onAvatarUpload?.(reader.result as string);
       };
     }
   };
-  // const removeImage = () => {
-  //   setPreviewImage(null);
-  // };
+
+  const deleteAvatar = () => {
+    setAvatarPreview(null);
+    onAvatarDelete?.();
+  };
 
   const handleUploadButtonClick = () => {
     if (fileInputRef.current) {
@@ -51,8 +54,8 @@ const ImageUploader = ({ currentImage, onUpload }: ImageUploaderProps) => {
   const triggerRef = useRef<ContextMenuRef>(null);
 
   const openContextMenu = (event: MouseEvent) => {
+    event.preventDefault();
     if (event.type === 'contextmenu') {
-      event.preventDefault();
       if (triggerRef.current) {
         triggerRef.current.handleTriggerClick(event);
       }
@@ -72,8 +75,16 @@ const ImageUploader = ({ currentImage, onUpload }: ImageUploaderProps) => {
       type: 'item',
       key: 'Upload photo',
       icon: Upload,
-      title: `Upload ${previewImage ? 'new' : ''} photo`,
+      title: `Upload ${avatarPreview ? 'new' : ''} photo`,
       action: handleUploadButtonClick,
+    },
+    { type: 'separator', key: 'delete-separator', hidden: !avatarPreview },
+    {
+      type: 'item',
+      icon: Trash,
+      title: 'Delete',
+      hidden: !avatarPreview,
+      action: deleteAvatar,
     },
     // {
     //   type: 'item',
@@ -81,14 +92,6 @@ const ImageUploader = ({ currentImage, onUpload }: ImageUploaderProps) => {
     //   icon: Shapes,
     //   title: 'Generate with AI',
     //   action: generateWithAi,
-    // },
-    // { type: 'separator', key: 'delete-separator', hidden: !previewImage },
-    // {
-    //   type: 'item',
-    //   icon: Trash,
-    //   title: 'Delete',
-    //   hidden: !previewImage,
-    //   action: removeImage,
     // },
   ];
 
@@ -98,7 +101,7 @@ const ImageUploader = ({ currentImage, onUpload }: ImageUploaderProps) => {
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={handleImageChange}
+        onChange={handleAvatarChange}
         id="imageInput"
         ref={fileInputRef}
       />
@@ -109,11 +112,11 @@ const ImageUploader = ({ currentImage, onUpload }: ImageUploaderProps) => {
             onClick={openContextMenu}
             className={cn(
               'group rounded-[100px] w-[80px] h-[80px] overflow-hidden cursor-pointer border border-transparent hover:border-white transition duration-200',
-              { 'border-dashed border-gray-500 hover:border-yellow  ': !previewImage },
+              { 'border-dashed border-gray-500 hover:border-yellow  ': !avatarPreview },
             )}
           >
-            {previewImage ? (
-              <img src={previewImage} alt="Preview" className="w-full h-full object-cover" />
+            {avatarPreview ? (
+              <img src={avatarPreview} alt="Preview" className="w-full h-full object-cover" />
             ) : (
               <button className="text-gray-400  w-full h-full rounded-[100px] group-hover:text-yellow transition duration-200">
                 <Icon icon={isGenerating ? Loader : Plus} className="m-auto" width={24} height={24} />
@@ -129,4 +132,4 @@ const ImageUploader = ({ currentImage, onUpload }: ImageUploaderProps) => {
   );
 };
 
-export default ImageUploader;
+export default AvatarUploader;
