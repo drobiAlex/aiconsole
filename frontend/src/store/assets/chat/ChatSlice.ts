@@ -17,14 +17,10 @@
 import { StateCreator } from 'zustand';
 
 import { AssetsAPI } from '@/api/api/AssetsAPI';
-import { CreateMutation, SetValueMutation } from '@/api/ws/assetMutations';
-import { applyMutation } from '@/api/ws/chat/applyMutation';
-import { useWebSocketStore } from '@/api/ws/useWebSocketStore';
+import { MutationsAPI } from '@/api/api/MutationsAPI';
 import { AICChat, createEmptyChat } from '@/types/assets/chatTypes';
-import { v4 as uuidv4 } from 'uuid';
 import { useAssetStore } from '../useAssetStore';
 import { ChatStore, useChatStore } from './useChatStore';
-import { MutationsAPI } from '@/api/api/MutationsAPI';
 
 export type ChatSlice = {
   isSaved: boolean;
