@@ -21,7 +21,7 @@ import { useChatStore } from '@/store/assets/chat/useChatStore';
 import { useAssetStore } from '@/store/assets/useAssetStore';
 import { Material } from '@/types/assets/assetTypes';
 import { cn } from '@/utils/common/cn';
-import { BanIcon, LucideIcon, MicIcon, MicOffIcon, X } from 'lucide-react';
+import { BanIcon, LucideIcon, MicIcon, MicOffIcon, X, XIcon } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import { ActorAvatar } from './ActorAvatar';
@@ -192,7 +192,7 @@ export const CommandInput = ({ className, onSubmit, actionIcon, actionLabel, tex
     setAICanAddExtraMaterials(true);
   };
 
-  const hasAutoPlay = useAudioStore((state) => state.isVoiceModeEnabled);
+  const isVoiceModeEnabled = useAudioStore((state) => state.isVoiceModeEnabled);
   const mediaRecorder = useAudioStore((state) => state.mediaRecorder);
 
   return (
@@ -207,7 +207,12 @@ export const CommandInput = ({ className, onSubmit, actionIcon, actionLabel, tex
             textAreaRef={textAreaRef}
           />
         )}
-        <div className="w-full overflow-y-auto border border-gray-500 focus-within:border-gray-400 transition duration-100 rounded-[8px] flex flex-col flex-grow resize-none">
+        <div
+          className={cn(
+            isVoiceModeEnabled ? 'border-primary' : 'border-gray-500',
+            'w-full overflow-y-auto border focus-within:border-gray-400 transition duration-100 rounded-[8px] flex flex-col flex-grow resize-none',
+          )}
+        >
           {(selectedAgentId || selectedMaterialIds.length > 0 || !aiCanAddExtraMaterials) && (
             <div className="bg-gray-600">
               <div className="px-[20px] py-[12px] w-full flex flex-wrap gap-2 items-center">
@@ -289,7 +294,7 @@ export const CommandInput = ({ className, onSubmit, actionIcon, actionLabel, tex
           )}
 
           <div>
-            {hasAutoPlay ? (
+            {isVoiceModeEnabled ? (
               <div className="flex flex-row justify-center items-center gap-2 m-3">
                 <div className="flex-grow flex justify-center items-center overflow-hidden">
                   <div className="h-[24px]">
@@ -300,7 +305,7 @@ export const CommandInput = ({ className, onSubmit, actionIcon, actionLabel, tex
                         width={300}
                         barWidth={1}
                         gap={0}
-                        barColor={'#ffffff'}
+                        barColor={'#A67CFF'}
                       />
                     )}
                     {!mediaRecorder && <Spinner width={24} height={24} />}
@@ -308,7 +313,7 @@ export const CommandInput = ({ className, onSubmit, actionIcon, actionLabel, tex
                 </div>
 
                 <Icon
-                  icon={MicIcon}
+                  icon={XIcon}
                   onClick={() => {
                     useAudioStore.setState({ isVoiceModeEnabled: false });
                     useAudioStore.getState().stopRecording();
@@ -330,7 +335,7 @@ export const CommandInput = ({ className, onSubmit, actionIcon, actionLabel, tex
                   maxRows={4}
                 />
                 <Icon
-                  icon={MicOffIcon}
+                  icon={MicIcon}
                   onClick={() => {
                     useAudioStore.getState().startRecording();
                     useAudioStore.getState().stopReading();
@@ -345,7 +350,15 @@ export const CommandInput = ({ className, onSubmit, actionIcon, actionLabel, tex
 
         <Tooltip label={actionLabel} position="top" align="center" sideOffset={10} disableAnimation withArrow>
           <div>
-            <Button variant="primary" iconOnly={true} onClick={handleSendMessage} classNames={cn('p-[12px]', {})}>
+            <Button
+              variant="primary"
+              iconOnly={true}
+              onClick={handleSendMessage}
+              classNames={cn(
+                'p-[12px]',
+                isVoiceModeEnabled && 'bg-primary border-primary hover:text-primary hover:border-primary-700',
+              )}
+            >
               <Icon icon={ActionIcon} width={24} height={24} className="w-6 h-6" />
             </Button>
           </div>
