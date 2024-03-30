@@ -21,7 +21,7 @@ import { useChatStore } from '@/store/assets/chat/useChatStore';
 import { useAssetStore } from '@/store/assets/useAssetStore';
 import { Material } from '@/types/assets/assetTypes';
 import { cn } from '@/utils/common/cn';
-import { BanIcon, LucideIcon, MicIcon, MicOffIcon, X, XIcon } from 'lucide-react';
+import { BanIcon, LucideIcon, MicIcon, X, XIcon } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import { ActorAvatar } from './ActorAvatar';
