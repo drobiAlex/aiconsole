@@ -24,7 +24,7 @@ export function startCheckingForSilence(stream: MediaStream) {
   };
 
   const checkSilence = () => {
-    if (!useAudioStore.getState().isRecording) {
+    if (!useAudioStore.getState().isRecordingVoice) {
       cleanUp();
       return;
     }

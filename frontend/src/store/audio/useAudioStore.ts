@@ -9,64 +9,77 @@ interface SoundPromise {
   isFinished: boolean;
 }
 
-export type MediaAudioTrackConstraints = Pick<
-  MediaTrackConstraints,
-  | 'deviceId'
-  | 'groupId'
-  | 'autoGainControl'
-  | 'channelCount'
-  | 'echoCancellation'
-  | 'noiseSuppression'
-  | 'sampleRate'
-  | 'sampleSize'
->;
-
 interface AudioState {
-  soundsToPlayQueue: SoundPromise[];
   isVoiceModeEnabled: boolean;
+
+  soundsToPlayQueue: SoundPromise[];
+  queuedTextSoFar: string;
+
   isPlaying: boolean;
   numLoading: number;
-  queuedTextSoFar: string;
-  enqueueText: (text: string) => Promise<void>;
-  processQueue: () => Promise<void>;
+
   readText: (text: string, canBeContinued: boolean) => Promise<void>;
   stopReading: () => void;
   startRecording: () => void;
   stopRecording: () => void;
-  togglePauseResumeRecording: () => void;
-  recordingBlob?: Blob;
+  recordedVoice?: Blob;
   isRecording: boolean;
   isPlayingPaused: boolean;
   isRecordingPaused: boolean;
-  recordingTime: number;
   mediaRecorder?: MediaRecorder;
-  timerInterval?: NodeJS.Timeout;
-  audioTrackConstraints?: MediaAudioTrackConstraints;
-  mediaRecorderOptions?: MediaRecorderOptions;
-  onNotAllowedOrFound?: (err: DOMException) => void;
 }
 
-function _stopTimer() {
-  if (useAudioStore.getState().timerInterval != null) {
-    clearInterval(useAudioStore.getState().timerInterval);
+async function enqueueText(text: string) {
+  console.log('Enqueuing text:', text);
+
+  const newSoundPromise: SoundPromise = {
+    promise: AudioAPI.textToSpeech(text),
+    isFinished: false,
+  };
+
+  useAudioStore.setState((state: AudioState) => ({ numLoading: state.numLoading + 1 }));
+
+  const after = () => {
+    useAudioStore.setState((state: AudioState) => ({ numLoading: state.numLoading - 1 }));
+    newSoundPromise.isFinished = true;
+    processSoundsToPlayQueue();
+  };
+
+  newSoundPromise.promise.then(after, after);
+  useAudioStore.setState((state: AudioState) => ({
+    soundsToPlayQueue: [...state.soundsToPlayQueue, newSoundPromise],
+  }));
+
+  if (!useAudioStore.getState().isPlaying) {
+    processSoundsToPlayQueue();
   }
-  useAudioStore.setState({ timerInterval: undefined });
 }
 
-function _startTimer() {
-  const interval = setInterval(() => {
-    useAudioStore.setState((state) => ({ recordingTime: state.recordingTime + 1 }));
-  }, 1000);
-  useAudioStore.setState({ timerInterval: interval });
-}
+async function processSoundsToPlayQueue() {
+  const { soundsToPlayQueue: soundQueue, isPlaying, numLoading } = useAudioStore.getState();
+  console.log('Processing queue', soundQueue.length, isPlaying, numLoading);
+  if (soundQueue.length === 0 || !soundQueue[0].isFinished || isPlaying) return;
+  const sound: Howl = await soundQueue[0].promise;
+  setTimeout(() => {
+    sound.once('end', () => {
+      useAudioStore.setState({ isPlaying: false });
+      useAudioStore.setState((state) => ({ soundsToPlayQueue: state.soundsToPlayQueue.slice(1) }));
 
-function stopRecording() {
-  const { mediaRecorder } = useAudioStore.getState();
-  if (mediaRecorder) {
-    mediaRecorder.stop();
-  }
-  _stopTimer();
-  useAudioStore.setState({ recordingTime: 0, isRecording: false, isRecordingPaused: false });
+      //if queue is empty then we are done
+      if (useAudioStore.getState().soundsToPlayQueue.length === 0) {
+        const startRecording = useAudioStore.getState().startRecording;
+        if (useAudioStore.getState().isVoiceModeEnabled && startRecording) {
+          startRecording();
+        }
+      }
+
+      console.log('Sound finished:', sound, soundQueue[0].promise, soundQueue[0].isFinished);
+      processSoundsToPlayQueue(); // Process the next item in the queue
+    });
+    sound.play();
+    console.log('Playing sound:', sound);
+  }, 100); // delay between sounds
+  useAudioStore.setState({ isPlaying: true });
 }
 
 export const useAudioStore = create<AudioState>((set, get) => ({
@@ -76,66 +89,13 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   isRecordingPaused: false,
   numLoading: 0,
   queuedTextSoFar: '',
-  recorderControls: undefined,
   audioTrackConstraints: undefined,
   mediaRecorderOptions: undefined,
 
   isRecording: false,
   isPlayingPaused: false,
-  recordingTime: 0,
   mediaRecorder: undefined,
-  timerInterval: undefined,
-  recordingBlob: undefined,
-
-  enqueueText: async (text: string) => {
-    console.log('Enqueuing text:', text);
-
-    const newSoundPromise: SoundPromise = {
-      promise: AudioAPI.textToSpeech(text),
-      isFinished: false,
-    };
-    set((state) => ({ numLoading: state.numLoading + 1 }));
-
-    const after = () => {
-      set((state) => ({ numLoading: state.numLoading - 1 }));
-      newSoundPromise.isFinished = true;
-      get().processQueue();
-    };
-
-    newSoundPromise.promise.then(after, after);
-    set((state) => ({ soundsToPlayQueue: [...state.soundsToPlayQueue, newSoundPromise] }));
-
-    if (!get().isPlaying) {
-      get().processQueue();
-    }
-  },
-
-  processQueue: async () => {
-    const { soundsToPlayQueue: soundQueue, isPlaying, numLoading } = get();
-    console.log('Processing queue', soundQueue.length, isPlaying, numLoading);
-    if (soundQueue.length === 0 || !soundQueue[0].isFinished || isPlaying) return;
-    const sound: Howl = await soundQueue[0].promise;
-    setTimeout(() => {
-      sound.once('end', () => {
-        set({ isPlaying: false });
-        set((state) => ({ soundsToPlayQueue: state.soundsToPlayQueue.slice(1) }));
-
-        //if queue is empty then we are done
-        if (get().soundsToPlayQueue.length === 0) {
-          const startRecording = get().startRecording;
-          if (get().isVoiceModeEnabled && startRecording) {
-            startRecording();
-          }
-        }
-
-        console.log('Sound finished:', sound, soundQueue[0].promise, soundQueue[0].isFinished);
-        get().processQueue(); // Process the next item in the queue
-      });
-      sound.play();
-      console.log('Playing sound:', sound);
-    }, 100); // delay between sounds
-    set({ isPlaying: true });
-  },
+  recordedVoice: undefined,
 
   readText: async (text: string, canBeContinued: boolean) => {
     set({ isVoiceModeEnabled: true });
@@ -160,11 +120,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
             ? queuedTextSoFar + remainingTextWithoutLastParagraph
             : remainingTextWithoutLastParagraph;
           set({ queuedTextSoFar: newText });
-          get().enqueueText(fullParagraphs);
+          enqueueText(fullParagraphs);
         }
       } else {
         set({ queuedTextSoFar: '' });
-        get().enqueueText(remainingText);
+        enqueueText(remainingText);
       }
     } else {
       console.log('Cannot continue reading from a different text', "'", queuedTextSoFar, "'", "'", text, "'");
@@ -183,16 +143,16 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   startRecording: () => {
-    if (get().timerInterval != null) return;
+    if (get().isRecording) return;
 
     navigator.mediaDevices
-      .getUserMedia({ audio: get().audioTrackConstraints ?? true })
+      .getUserMedia({ audio: true })
       .then((stream) => {
+        console.log('Recording started');
         set({ isRecording: true });
-        const recorder: MediaRecorder = new MediaRecorder(stream, get().mediaRecorderOptions);
+        const recorder: MediaRecorder = new MediaRecorder(stream);
         set({ mediaRecorder: recorder });
         recorder.start();
-        _startTimer();
 
         startCheckingForSilence(stream);
 
@@ -201,7 +161,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
           if (get().isVoiceModeEnabled) {
             if (await detectVoice(event.data)) {
-              set({ recordingBlob: event.data });
+              set({ recordedVoice: event.data });
             } else {
               set({ isVoiceModeEnabled: false });
               useToastsStore.getState().showToast({ title: 'No voice detected', message: 'Turning off voice chat' });
@@ -214,21 +174,17 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       })
       .catch((err: DOMException) => {
         console.log(err.name, err.message);
-        get().onNotAllowedOrFound?.(err);
+        //TODO: Propagate error to user
       });
   },
 
-  stopRecording,
-
-  togglePauseResumeRecording: () => {
-    if (get().isRecordingPaused) {
-      set({ isRecordingPaused: false });
-      get().mediaRecorder?.resume();
-      _startTimer();
-    } else {
-      set({ isRecordingPaused: true });
-      _stopTimer();
-      get().mediaRecorder?.pause();
+  stopRecording: () => {
+    const { mediaRecorder } = get();
+    if (mediaRecorder) {
+      mediaRecorder.stop();
     }
+
+    console.log('Recording stopped');
+    set({ isRecording: false, isRecordingPaused: false });
   },
 }));

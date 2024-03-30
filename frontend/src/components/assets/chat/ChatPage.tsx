@@ -212,7 +212,9 @@ export const ChatPage = React.memo(function ChatPage() {
 
   const areProcessesAreNotRunning = !isExecutionRunning && !isAnalysisRunning;
 
-  const recorderControls = useAudioStore();
+  const isRecording = useAudioStore((state) => state.isRecording);
+  const recordedVoice = useAudioStore((state) => state.recordedVoice);
+  const stopRecording = useAudioStore((state) => state.stopRecording);
 
   const handleRename = async (newName: string) => {
     if (newName !== chat.name) {
@@ -241,17 +243,13 @@ export const ChatPage = React.memo(function ChatPage() {
   const setCommand = useChatStore((state) => state.editCommand);
 
   useEffect(() => {
-    useAudioStore.setState(recorderControls);
-  }, [recorderControls]);
-
-  useEffect(() => {
-    console.log('recorderControls', recorderControls, useAudioStore.getState().isVoiceModeEnabled);
-    if (!recorderControls || !recorderControls.recordingBlob || !useAudioStore.getState().isVoiceModeEnabled) return;
+    console.log('recorderControls', useAudioStore.getState().isVoiceModeEnabled);
+    if (!recordedVoice || !useAudioStore.getState().isVoiceModeEnabled) return;
 
     const uploadAudioAndTranscribe = async () => {
-      if (!recorderControls.recordingBlob) return;
+      if (!recordedVoice) return;
 
-      const audioPromise = AudioAPI.speechToText(recorderControls.recordingBlob);
+      const audioPromise = AudioAPI.speechToText(recordedVoice);
       const transcribedText = await audioPromise;
       const newCmd = command ? `${command} ${transcribedText}` : transcribedText;
       setCommand(newCmd);
@@ -261,7 +259,7 @@ export const ChatPage = React.memo(function ChatPage() {
 
     uploadAudioAndTranscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recorderControls.recordingBlob]);
+  }, [recordedVoice]);
 
   if (!chat) {
     return <div className="flex flex-1 justify-center items-center">{showSpinner && <Spinner />}</div>;
@@ -269,13 +267,13 @@ export const ChatPage = React.memo(function ChatPage() {
 
   let actionButtonLabel, actionButtonIcon, actionButtonAction;
 
-  if (hasAnyCommandInput || recorderControls.isRecording) {
+  if (hasAnyCommandInput || isRecording) {
     actionButtonLabel = 'Send';
     actionButtonIcon = SendRotated;
-    if (recorderControls.isRecording) {
+    if (isRecording) {
       actionButtonAction = () => {
         enableSoundsInBrowser();
-        recorderControls.stopRecording();
+        stopRecording();
       };
     } else {
       actionButtonAction = async () => {
